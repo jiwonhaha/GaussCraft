@@ -240,8 +240,10 @@ if __name__ == "__main__":
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument("--checkpoint_iterations", nargs="+", type=int, default=[])
     parser.add_argument("--start_checkpoint", type=str, default = None)
-    parser.add_argument('--mesh', type=str, help='Path to the mesh file')
 
+    parser.add_argument('--mesh', type=str, help='Path to the mesh file')  # No shorthand
+
+    args = parser.parse_args(sys.argv[1:])
     args = parser.parse_args(sys.argv[1:])
     args.save_iterations.append(args.iterations)
     
@@ -249,6 +251,12 @@ if __name__ == "__main__":
 
     # Initialize system state (RNG)
     safe_state(args.quiet)
+
+    # Load mesh file if provided
+    if args.mesh:
+        mesh_path = os.path.abspath(args.mesh)
+        print(f"Using mesh file at: {mesh_path}")
+        args._mesh = mesh_path  # Ensure mesh is included in args
 
     # Start GUI server, configure and run training
     # network_gui.init(args.ip, args.port)
