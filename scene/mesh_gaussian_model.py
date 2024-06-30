@@ -3,7 +3,7 @@ from .gaussian_model import GaussianModel
 from utils.graphics_utils import compute_face_orientation
 
 class mesh_gaussian_model(GaussianModel):
-    def __init__(self, sh_degree: int):
+    def __init__(self, mesh, sh_degree: int):
         super().__init__(sh_degree)
         self.verts = None
         self.faces = None
