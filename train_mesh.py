@@ -12,6 +12,7 @@
 import os
 import torch
 from random import randint
+import trimesh
 from utils.loss_utils import l1_loss, ssim
 from gaussian_renderer import render
 import sys
@@ -32,7 +33,8 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
     first_iter = 0
     tb_writer = prepare_output_and_logger(dataset)
     print(vars(dataset))
-    gaussians = mesh_gaussian_model(dataset.mesh, dataset.sh_degree)
+    mesh = trimesh.load(dataset.mesh_path)
+    gaussians = mesh_gaussian_model(mesh, dataset.sh_degree)
     scene = Scene(dataset, gaussians)
     gaussians.training_setup(opt)
     if checkpoint:
