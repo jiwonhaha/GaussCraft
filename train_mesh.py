@@ -31,6 +31,7 @@ except ImportError:
 def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoint_iterations, checkpoint):
     first_iter = 0
     tb_writer = prepare_output_and_logger(dataset)
+    print(vars(dataset))
     gaussians = mesh_gaussian_model(dataset.mesh, dataset.sh_degree)
     scene = Scene(dataset, gaussians)
     gaussians.training_setup(opt)
