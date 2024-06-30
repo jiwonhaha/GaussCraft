@@ -12,3 +12,5 @@ assets
 *.out
 *.npz
 **/tmp
+datasets/
+submodules/
