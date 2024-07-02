@@ -30,12 +30,12 @@ class mesh_gaussian_model(GaussianModel):
         # self.face_orien_quat = quat_xyzw_to_wxyz(rotmat_to_unitquat(self.face_orien_mat))
 
 
-    def training_setup(self, training_args):
-        """Setup the optimizer for the general mesh."""
-        super().training_setup(training_args)
-        self.verts.requires_grad = True
-        params = {'params': self.verts, 'lr': training_args.position_lr_init * self.spatial_lr_scale, "name": "mesh_verts"}
-        self.optimizer.add_param_group(params)
+#    def training_setup(self, training_args):
+#        """Setup the optimizer for the general mesh."""
+#        super().training_setup(training_args)
+#        self.verts.requires_grad = True
+#        params = {'params': self.verts, 'lr': training_args.position_lr_init * self.spatial_lr_scale, "name": "mesh_verts"}
+#        self.optimizer.add_param_group(params)
 
     def save_ply(self, path):
         """Save the mesh and Gaussian parameters to a file."""
