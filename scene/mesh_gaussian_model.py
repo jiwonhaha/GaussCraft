@@ -7,11 +7,12 @@ class mesh_gaussian_model(GaussianModel):
         super().__init__(sh_degree)
         self.verts = None
         self.faces = None
+        self.load_mesh(mesh)
 
-    def load_mesh(self, vertices, faces):
+    def load_mesh(self, mesh):
         """Load a single general triangular mesh."""
-        self.verts = torch.tensor(vertices, dtype=torch.float32).cuda()
-        self.faces = torch.tensor(faces, dtype=torch.int32).cuda()
+        self.verts = torch.tensor(mesh.vertices, dtype=torch.float32).cuda()
+        self.faces = torch.tensor(mesh.faces, dtype=torch.int32).cuda()
         
         self.update_mesh_properties()
 
@@ -33,7 +34,7 @@ class mesh_gaussian_model(GaussianModel):
         """Setup the optimizer for the general mesh."""
         super().training_setup(training_args)
         self.verts.requires_grad = True
-        params = [{'params': self.verts, 'lr': training_args.mesh_lr, "name": "mesh_verts"}]
+        params = {'params': self.verts, 'lr': training_args.position_lr_init * self.spatial_lr_scale, "name": "mesh_verts"}
         self.optimizer.add_param_group(params)
 
     def save_ply(self, path):
