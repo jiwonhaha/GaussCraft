@@ -92,7 +92,16 @@ class OptimizationParams(ParamGroup):
         self.densify_from_iter = 500
         self.densify_until_iter = 15_000
         self.densify_grad_threshold = 0.0002
+        
+        #mesh_gaussian
+        self.lambda_xyz = 1e-2
+        self.threshold_xyz = 1.
+        self.lambda_scale = 1.
+        self.threshold_scale = 0.6
+        
         super().__init__(parser, "Optimization Parameters")
+        
+        
 
 def get_combined_args(parser : ArgumentParser):
     cmdlne_string = sys.argv[1:]
