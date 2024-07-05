@@ -17,7 +17,7 @@ import trimesh
 from utils.loss_utils import l1_loss, ssim
 from gaussian_renderer import render
 import sys
-from scene import Scene, mesh_gaussian_model
+from scene import Scene, MeshGaussianModel
 from utils.general_utils import safe_state
 import uuid
 from tqdm import tqdm
@@ -35,7 +35,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
     tb_writer = prepare_output_and_logger(dataset)
     print(vars(dataset))
     mesh = trimesh.load(dataset.mesh_path)
-    gaussians = mesh_gaussian_model(mesh, dataset.sh_degree)
+    gaussians = MeshGaussianModel(mesh, dataset.sh_degree)
     scene = Scene(dataset, gaussians)
     gaussians.training_setup(opt)
     if checkpoint:
