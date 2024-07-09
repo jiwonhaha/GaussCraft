@@ -11,6 +11,11 @@ class MeshGaussianModel(GaussianModel):
         self.mesh_param = None  
         self.load_mesh(mesh)
         
+        # binding is initialized once the mesh topology is known
+        if self.binding is None:
+            self.binding = torch.arange(len(self.faces)).cuda()
+            self.binding_counter = torch.ones(len(self.faces), dtype=torch.int32).cuda()
+        
 
     def load_mesh(self, mesh):
         """Load a single general triangular mesh."""

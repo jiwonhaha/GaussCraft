@@ -21,8 +21,6 @@ from simple_knn._C import distCUDA2
 from utils.graphics_utils import BasicPointCloud
 from utils.general_utils import strip_symmetric, build_scaling_rotation
 
-from roma import quat_product, quat_xyzw_to_wxyz, quat_wxyz_to_xyzw
-
 class GaussianModel:
 
     def setup_functions(self):
@@ -59,14 +57,6 @@ class GaussianModel:
         self.percent_dense = 0
         self.spatial_lr_scale = 0
         self.setup_functions()
-        
-        #Mesh Gaussian
-        self.face_center = None
-        self.face_scaling = None
-        self.face_orien_mat = None
-        self.face_orien_quat = None
-        self.binding = None  # gaussian index to face index
-        self.binding_counter = None  # number of points bound to each face
 
     def capture(self):
         return (
@@ -108,23 +98,11 @@ class GaussianModel:
     
     @property
     def get_rotation(self):
-        # return self.rotation_activation(self._rotation)
-        # Mesh Gaussian
-        # always need to normalize the rotation quaternions before chaining them
-        rot = self.rotation_activation(self._rotation)
-        face_orien_quat = self.rotation_activation(self.face_orien_quat[self.binding])
-        return quat_xyzw_to_wxyz(quat_product(quat_wxyz_to_xyzw(face_orien_quat), quat_wxyz_to_xyzw(rot)))  # roma
-
+        return self.rotation_activation(self._rotation)
     
     @property
     def get_xyz(self):
-        print(f"self.face_orien_mat shape: {self.face_orien_mat.shape}")
-        print(f"self.binding shape: {self.binding.shape}")
-        print(f"self._xyz shape: {self._xyz.shape}")
-        xyz = torch.bmm(self.face_orien_mat[self.binding], self._xyz[..., None]).squeeze(-1)
-        print(f"xyz shape: {xyz.shape}")
-        return xyz
-
+        return self._xyz
     
     @property
     def get_features(self):
