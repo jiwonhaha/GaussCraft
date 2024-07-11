@@ -67,6 +67,8 @@ class GaussianModel:
         self.face_orien_quat = None
         self.binding = None  # gaussian index to face index
         self.binding_counter = None  # number of points bound to each face
+        self.timestep = None  # the current timestep
+        self.num_timesteps = 1  # required by viewers
 
     def capture(self):
         return (
@@ -108,23 +110,11 @@ class GaussianModel:
     
     @property
     def get_rotation(self):
-        # return self.rotation_activation(self._rotation)
-        # Mesh Gaussian
-        # always need to normalize the rotation quaternions before chaining them
-        rot = self.rotation_activation(self._rotation)
-        face_orien_quat = self.rotation_activation(self.face_orien_quat[self.binding])
-        return quat_xyzw_to_wxyz(quat_product(quat_wxyz_to_xyzw(face_orien_quat), quat_wxyz_to_xyzw(rot)))  # roma
-
+        return self.rotation_activation(self._rotation)
     
     @property
     def get_xyz(self):
-        print(f"self.face_orien_mat shape: {self.face_orien_mat.shape}")
-        print(f"self.binding shape: {self.binding.shape}")
-        print(f"self._xyz shape: {self._xyz.shape}")
-        xyz = torch.bmm(self.face_orien_mat[self.binding], self._xyz[..., None]).squeeze(-1)
-        print(f"xyz shape: {xyz.shape}")
-        return xyz
-
+        return self._xyz
     
     @property
     def get_features(self):
@@ -144,6 +134,7 @@ class GaussianModel:
             self.active_sh_degree += 1
 
     def create_from_pcd(self, pcd : BasicPointCloud, spatial_lr_scale : float):
+        
         self.spatial_lr_scale = spatial_lr_scale
         fused_point_cloud = torch.tensor(np.asarray(pcd.points)).float().cuda()
         fused_color = RGB2SH(torch.tensor(np.asarray(pcd.colors)).float().cuda())
@@ -166,6 +157,8 @@ class GaussianModel:
         self._rotation = nn.Parameter(rots.requires_grad_(True))
         self._opacity = nn.Parameter(opacities.requires_grad_(True))
         self.max_radii2D = torch.zeros((self.get_xyz.shape[0]), device="cuda")
+
+
 
     def training_setup(self, training_args):
         self.percent_dense = training_args.percent_dense
@@ -324,6 +317,10 @@ class GaussianModel:
 
         self.denom = self.denom[valid_points_mask]
         self.max_radii2D = self.max_radii2D[valid_points_mask]
+        
+        if self.binding is not None:
+            self.binding_counter.scatter_add_(0, self.binding[mask], -torch.ones_like(self.binding[mask], dtype=torch.int32, device="cuda"))
+            self.binding = self.binding[valid_points_mask]
 
     def cat_tensors_to_optimizer(self, tensors_dict):
         optimizable_tensors = {}
@@ -388,6 +385,12 @@ class GaussianModel:
         new_features_dc = self._features_dc[selected_pts_mask].repeat(N,1,1)
         new_features_rest = self._features_rest[selected_pts_mask].repeat(N,1,1)
         new_opacity = self._opacity[selected_pts_mask].repeat(N,1)
+        
+        if self.binding is not None:
+            new_binding = self.binding[selected_pts_mask].repeat(N)
+            self.binding = torch.cat((self.binding, new_binding))
+            self.binding_counter.scatter_add_(0, new_binding, torch.ones_like(new_binding, dtype=torch.int32, device="cuda"))
+
 
         self.densification_postfix(new_xyz, new_features_dc, new_features_rest, new_opacity, new_scaling, new_rotation)
 
@@ -406,6 +409,12 @@ class GaussianModel:
         new_opacities = self._opacity[selected_pts_mask]
         new_scaling = self._scaling[selected_pts_mask]
         new_rotation = self._rotation[selected_pts_mask]
+        
+        if self.binding is not None:
+            new_binding = self.binding[selected_pts_mask]
+            self.binding = torch.cat((self.binding, new_binding))
+            self.binding_counter.scatter_add_(0, new_binding, torch.ones_like(new_binding, dtype=torch.int32, device="cuda"))
+        
 
         self.densification_postfix(new_xyz, new_features_dc, new_features_rest, new_opacities, new_scaling, new_rotation)
 
