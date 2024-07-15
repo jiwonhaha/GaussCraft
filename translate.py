@@ -96,32 +96,38 @@ class Translate:
         return np.array(rotation_matrices), np.array(translation_vectors)
 
 
+    
     def move_gaussian(self, gaussian):
         binding_mat = gaussian.binding  # Gaussian to face index 
         location = gaussian.get_xyz  # Use property method
-        # rotation = gaussian.get_rotation  # Use property method
+        rotation = gaussian.get_rotation  # Use property method (assuming quaternion)
 
         # Apply new location and rotation property based on rotation translation and gaussian binding properties
         valid_indices = (binding_mat >= 0) & (binding_mat < len(self.rotation_matrices))
-        
+
         if torch.any(valid_indices):  # Use torch.any for PyTorch tensors
             valid_binding = binding_mat[valid_indices].cpu().numpy()  # Move to CPU and convert to NumPy array
 
             R_matrices = self.rotation_matrices[valid_binding]
             t_vectors = self.translation_vectors[valid_binding]
 
+            # Apply rotation and translation to location
             new_locations = np.einsum('ijk,ik->ij', R_matrices, location[valid_indices].detach().cpu().numpy()) + t_vectors
-            # new_rotations = np.einsum('ijk,ik->ij', R_matrices, rotation[valid_indices].detach().cpu().numpy())
+            
+            # Apply rotation to rotation property (assumed to be quaternions)
+            rotation_quaternions = rotation[valid_indices].detach().cpu().numpy()
+            new_rotations = np.array([R.from_matrix(R_matrices[i]).as_quat() * R.from_quat(rotation_quaternions[i]).as_quat()
+                                    for i in range(len(rotation_quaternions))])
 
             # Create new tensors instead of modifying in-place
             updated_location = location.clone()
-            # updated_rotation = rotation.clone()
+            updated_rotation = rotation.clone()
 
             updated_location[valid_indices] = torch.tensor(new_locations, dtype=location.dtype, device=location.device)  # Ensure matching dtype
-            # updated_rotation[valid_indices] = torch.tensor(new_rotations, device=rotation.device)
+            updated_rotation[valid_indices] = torch.tensor(new_rotations, dtype=rotation.dtype, device=rotation.device)
 
             gaussian._xyz = updated_location
-            # gaussian._rotation = updated_rotation
+            gaussian._rotation = updated_rotation
 
 
 
