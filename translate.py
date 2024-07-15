@@ -6,24 +6,28 @@ from argparse import ArgumentParser
 from scene import Scene, MeshGaussianModel
 from scipy.spatial.transform import Rotation as R
 
+from arguments import ModelParams
+
+
 class Translate:
-    def __init__(self, args, model_paths: str, source_path: str = '', iterations: int = 30000):
+    def __init__(self, dataset, args, model_paths: str, iterations: int = 30000):
         self.args = args
         self.model_paths = model_paths
-        self.source_path = source_path
+        self.source_path = args.source_path
         self.iterations = iterations
         self.sh_degree = args.sh_degree
-        self.gaussians = None
         self.ply_path = ""
         self.is_training = False
-        self.source_mesh_path = args.source_mesh
+        self.source_mesh_path = args.mesh
         self.target_mesh_path = args.target_mesh
-        self._init_models(iterations)
-        
+
+
         # Compute transformations
         self.rotation_matrices, self.translation_vectors = self.compute_transformations()
+        self._init_models(dataset, iterations)
+        
 
-    def _init_models(self, iterations):
+    def _init_models(self, dataset, iterations):
         # init gaussian model & renderer
         if not self.is_training:
             self.iteration = iterations
@@ -39,17 +43,14 @@ class Translate:
             print('[INFO] ply path loaded from:', self.ply_path)
             source_mesh = trimesh.load(self.source_mesh_path)
             deformed_mesh = trimesh.load(self.target_mesh_path)
-            self.gaussians = MeshGaussianModel(source_mesh, sh_degree=self.sh_degree)
-            self.gaussians.load_ply(self.ply_path)
-            self.gaussians.load_mesh(source_mesh)
-            self.gaussians.update_binding()
+            gaussians = MeshGaussianModel(source_mesh, sh_degree=self.sh_degree)
 
-            move_gaussian(self.gaussians)
+            scene = Scene(dataset, gaussians, source_mesh, load_iteration=self.iterations)
+            gaussians.load_mesh(source_mesh)
+            gaussians.update_binding()
 
-            # Save self.gaussian.binding as an npz file
-            binding_file_path = os.path.join(self.model_paths, "gaussian_binding.npz")
-            np.savez(binding_file_path, binding=self.gaussians.binding.cpu().numpy())
-            print(f'[INFO] Gaussian binding saved to: {binding_file_path}')
+            self.move_gaussian(gaussians)
+            scene.save(self.iterations)
 
     def compute_transformations(self):
         source_mesh = trimesh.load(self.source_mesh_path)
@@ -94,38 +95,46 @@ class Translate:
         
         return np.array(rotation_matrices), np.array(translation_vectors)
 
+
     def move_gaussian(self, gaussian):
         binding_mat = gaussian.binding  # Gaussian to face index 
-        location = gaussian.get_xyz()
-        rotation = gaussian.get_rotation()
+        location = gaussian.get_xyz  # Use property method
+        # rotation = gaussian.get_rotation  # Use property method
 
         # Apply new location and rotation property based on rotation translation and gaussian binding properties
         valid_indices = (binding_mat >= 0) & (binding_mat < len(self.rotation_matrices))
         
-        if np.any(valid_indices):
-            valid_binding = binding_mat[valid_indices]
+        if torch.any(valid_indices):  # Use torch.any for PyTorch tensors
+            valid_binding = binding_mat[valid_indices].cpu().numpy()  # Move to CPU and convert to NumPy array
 
             R_matrices = self.rotation_matrices[valid_binding]
             t_vectors = self.translation_vectors[valid_binding]
 
-            new_locations = np.einsum('ijk,ik->ij', R_matrices, location[valid_indices]) + t_vectors
-            new_rotations = np.einsum('ijk,ik->ij', R_matrices, rotation[valid_indices])
+            new_locations = np.einsum('ijk,ik->ij', R_matrices, location[valid_indices].detach().cpu().numpy()) + t_vectors
+            # new_rotations = np.einsum('ijk,ik->ij', R_matrices, rotation[valid_indices].detach().cpu().numpy())
 
-            # Assign the new values back to the valid indices
-            location[valid_indices] = new_locations
-            rotation[valid_indices] = new_rotations
+            # Create new tensors instead of modifying in-place
+            updated_location = location.clone()
+            # updated_rotation = rotation.clone()
 
-        gaussian._xyz = location
-        gaussian._rotation = rotation
+            updated_location[valid_indices] = torch.tensor(new_locations, dtype=location.dtype, device=location.device)  # Ensure matching dtype
+            # updated_rotation[valid_indices] = torch.tensor(new_rotations, device=rotation.device)
+
+            gaussian._xyz = updated_location
+            # gaussian._rotation = updated_rotation
+
 
 
 if __name__ == "__main__":
     parser = ArgumentParser()
+
+    lp = ModelParams(parser)
+
     parser.add_argument("model_paths", type=str, nargs="+")
-    parser.add_argument("--source_path", "-s", type=str, default="")
-    parser.add_argument("--sh_degree", type=int, default=3, help="Spherical harmonics degree")
+    # parser.add_argument("--source_path", "-s", type=str, default="")
+    # parser.add_argument("--sh_degree", type=int, default=3, help="Spherical harmonics degree")
     parser.add_argument("--float32_matmul_precision", type=str, default=None, help="Set torch float32 matmul precision")
-    parser.add_argument('--source_mesh', type=str, required=True, help='Path to the source mesh file')  # No shorthand
+    parser.add_argument('--mesh', type=str, required=True, help='Path to the source mesh file')  # No shorthand
     parser.add_argument('--target_mesh', type=str, required=True, help='Path to the target mesh file')  # No shorthand
 
     args, unknown_args = parser.parse_known_args()
@@ -136,12 +145,6 @@ if __name__ == "__main__":
         del args.float32_matmul_precision
 
     # Initialize the Translate with provided arguments
-    translate = Translate(args, model_paths=args.model_paths[0], source_path=args.source_path, iterations=30000)
+    translate = Translate(lp.extract(args), args, model_paths=args.model_paths[0], iterations=30000)
 
     print("\nProcess complete.")
-    print("Rotation Matrices:")
-    for R in translate.rotation_matrices:
-        print(R)
-    print("Translation Vectors:")
-    for t in translate.translation_vectors:
-        print(t)
