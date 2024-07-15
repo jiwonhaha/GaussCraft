@@ -23,7 +23,7 @@ class Translate:
 
 
         # Compute transformations
-        self.rotation_matrices, self.translation_vectors = self.compute_transformations()
+        self.rotation_matrices, self.translation_vectors, self.scaling_constants = self.compute_transformations()
         self._init_models(dataset, iterations)
         
 
@@ -52,6 +52,8 @@ class Translate:
             self.move_gaussian(gaussians)
             scene.save(self.iterations)
 
+
+
     def compute_transformations(self):
         source_mesh = trimesh.load(self.source_mesh_path)
         target_mesh = trimesh.load(self.target_mesh_path)
@@ -62,6 +64,7 @@ class Translate:
         num_faces = len(source_faces)
         rotation_matrices = []
         translation_vectors = []
+        scaling_constants = []
         
         for i in range(num_faces):
             src_face = source_faces[i]
@@ -90,17 +93,29 @@ class Translate:
             # Translation vector
             t = tgt_centroid - R @ src_centroid
             
+            # Compute scalar k for scaling
+            def compute_k(face):
+                v0, v1, v2 = face
+                edge_length = np.linalg.norm(v1 - v0)
+                height = np.linalg.norm(np.cross(v2 - v0, v2 - v1)) / edge_length
+                return edge_length * height
+
+            src_k = compute_k(src_face)
+            tgt_k = compute_k(tgt_face)
+            scaling_constant = tgt_k / src_k
+            
             rotation_matrices.append(R)
             translation_vectors.append(t)
+            scaling_constants.append(scaling_constant)
         
-        return np.array(rotation_matrices), np.array(translation_vectors)
-
+        return np.array(rotation_matrices), np.array(translation_vectors), np.array(scaling_constants)
 
     
     def move_gaussian(self, gaussian):
         binding_mat = gaussian.binding  # Gaussian to face index 
         location = gaussian.get_xyz  # Use property method
         rotation = gaussian.get_rotation  # Use property method (assuming quaternion)
+        scale = gaussian.get_scaling  # Use property method to get scaling
 
         # Apply new location and rotation property based on rotation translation and gaussian binding properties
         valid_indices = (binding_mat >= 0) & (binding_mat < len(self.rotation_matrices))
@@ -110,24 +125,35 @@ class Translate:
 
             R_matrices = self.rotation_matrices[valid_binding]
             t_vectors = self.translation_vectors[valid_binding]
+            scaling_constants = self.scaling_constants[valid_binding]
 
             # Apply rotation and translation to location
-            new_locations = np.einsum('ijk,ik->ij', R_matrices, location[valid_indices].detach().cpu().numpy()) + t_vectors
-            
+            location_array = location[valid_indices].detach().cpu().numpy()
+            new_locations = np.einsum('ijk,ik->ij', R_matrices, location_array) * scaling_constants[:, np.newaxis] + t_vectors
+
             # Apply rotation to rotation property (assumed to be quaternions)
             rotation_quaternions = rotation[valid_indices].detach().cpu().numpy()
             new_rotations = np.array([R.from_matrix(R_matrices[i]).as_quat() * R.from_quat(rotation_quaternions[i]).as_quat()
                                     for i in range(len(rotation_quaternions))])
 
+            # Apply scaling
+            scale_array = scale[valid_indices].detach().cpu().numpy()  # Nx2 array
+            new_scaling = scale_array * scaling_constants[:, np.newaxis]  # Scale each dimension separately
+
+
             # Create new tensors instead of modifying in-place
             updated_location = location.clone()
             updated_rotation = rotation.clone()
+            updated_scaling = scale.clone()
 
             updated_location[valid_indices] = torch.tensor(new_locations, dtype=location.dtype, device=location.device)  # Ensure matching dtype
             updated_rotation[valid_indices] = torch.tensor(new_rotations, dtype=rotation.dtype, device=rotation.device)
+            updated_scaling[valid_indices] = torch.tensor(new_scaling, dtype=scale.dtype, device=scale.device)
 
             gaussian._xyz = updated_location
             gaussian._rotation = updated_rotation
+            gaussian._scaling = updated_scaling
+
 
 
 
