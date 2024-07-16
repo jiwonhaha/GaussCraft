@@ -101,7 +101,7 @@ class Viewer:
         if not self.is_training:
             self.iteration = iterations
             if not self.model_paths.lower().endswith('.ply'):
-                self.ply_path = os.path.join(self.model_paths, "point_cloud", f"iteration_{iterations}", "point_cloud.ply")
+                self.ply_path = os.path.join(self.model_paths, "point_cloud", f"iteration_{30000}", "point_cloud.ply")
             else:
                 self.ply_path = self.model_paths
             if not os.path.exists(self.ply_path):

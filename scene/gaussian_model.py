@@ -21,6 +21,8 @@ from simple_knn._C import distCUDA2
 from utils.graphics_utils import BasicPointCloud
 from utils.general_utils import strip_symmetric, build_scaling_rotation
 
+from roma import quat_product, quat_xyzw_to_wxyz, quat_wxyz_to_xyzw
+
 class GaussianModel:
 
     def setup_functions(self):
@@ -39,6 +41,17 @@ class GaussianModel:
         self.opacity_activation = torch.sigmoid
         self.inverse_opacity_activation = inverse_sigmoid
         self.rotation_activation = torch.nn.functional.normalize
+
+        # Toyota Motor Europe NV/SA and its affiliated companies retain all intellectual property and proprietary rights in and to the following code lines and related documentation. Any commercial use, reproduction, disclosure or distribution of these code lines and related documentation without an express license agreement from Toyota Motor Europe NV/SA is strictly prohibited.
+        # for binding GaussianModel to a mesh
+        self.face_center = None
+        self.face_scaling = None
+        self.face_orien_mat = None
+        self.face_orien_quat = None
+        self.binding = None  # gaussian index to face index
+        self.binding_counter = None  # number of points bound to each face
+        self.timestep = None  # the current timestep
+        self.num_timesteps = 1  # required by viewers
 
 
     def __init__(self, sh_degree : int):
@@ -94,15 +107,41 @@ class GaussianModel:
 
     @property
     def get_scaling(self):
-        return self.scaling_activation(self._scaling) #.clamp(max=1)
+        if self.binding is None:
+            return self.scaling_activation(self._scaling)
+        else:
+            # Toyota Motor Europe NV/SA and its affiliated companies retain all intellectual property and proprietary rights in and to the following code lines and related documentation. Any commercial use, reproduction, disclosure or distribution of these code lines and related documentation without an express license agreement from Toyota Motor Europe NV/SA is strictly prohibited.
+            if self.face_scaling is None:
+                self.select_mesh_by_timestep(0)
+
+            scaling = self.scaling_activation(self._scaling)
+            return scaling * self.face_scaling[self.binding]
+
     
     @property
     def get_rotation(self):
-        return self.rotation_activation(self._rotation)
+        if self.binding is None:
+            return self.rotation_activation(self._rotation)
+        else:
+            # Toyota Motor Europe NV/SA and its affiliated companies retain all intellectual property and proprietary rights in and to the following code lines and related documentation. Any commercial use, reproduction, disclosure or distribution of these code lines and related documentation without an express license agreement from Toyota Motor Europe NV/SA is strictly prohibited.
+
+            # always need to normalize the rotation quaternions before chaining them
+            rot = self.rotation_activation(self._rotation)
+            face_orien_quat = self.rotation_activation(self.face_orien_quat[self.binding])
+            return quat_xyzw_to_wxyz(quat_product(quat_wxyz_to_xyzw(face_orien_quat), quat_wxyz_to_xyzw(rot)))  # roma
+            # return quaternion_multiply(face_orien_quat, rot)  # pytorch3d
     
     @property
     def get_xyz(self):
-        return self._xyz
+        if self.binding is None:
+            return self._xyz
+        else:
+            # Toyota Motor Europe NV/SA and its affiliated companies retain all intellectual property and proprietary rights in and to the following code lines and related documentation. Any commercial use, reproduction, disclosure or distribution of these code lines and related documentation without an express license agreement from Toyota Motor Europe NV/SA is strictly prohibited.
+            if self.face_center is None:
+                self.select_mesh_by_timestep(0)
+            
+            xyz = torch.bmm(self.face_orien_mat[self.binding], self._xyz[..., None]).squeeze(-1)
+            return xyz * self.face_scaling[self.binding] + self.face_center[self.binding]
     
     @property
     def get_features(self):
@@ -123,20 +162,26 @@ class GaussianModel:
 
     def create_from_pcd(self, pcd : BasicPointCloud, spatial_lr_scale : float):
         self.spatial_lr_scale = spatial_lr_scale
-        fused_point_cloud = torch.tensor(np.asarray(pcd.points)).float().cuda()
-        fused_color = RGB2SH(torch.tensor(np.asarray(pcd.colors)).float().cuda())
+        num_pts = self.binding.shape[0]
+        fused_point_cloud = torch.zeros((num_pts, 3)).float().cuda()
+        fused_color = torch.tensor(np.random.random((num_pts, 3)) / 255.0).float().cuda()
+
         features = torch.zeros((fused_color.shape[0], 3, (self.max_sh_degree + 1) ** 2)).float().cuda()
         features[:, :3, 0 ] = fused_color
         features[:, 3:, 1:] = 0.0
 
-        print("Number of points at initialisation : ", fused_point_cloud.shape[0])
+        self._xyz = nn.Parameter(fused_point_cloud.requires_grad_(True))
+        self._features_dc = nn.Parameter(features[:,:,0:1].transpose(1, 2).contiguous().requires_grad_(True))
+        self._features_rest = nn.Parameter(features[:,:,1:].transpose(1, 2).contiguous().requires_grad_(True))
+        print("Number of points at initialisation: ", self.get_xyz.shape[0])
 
-        dist2 = torch.clamp_min(distCUDA2(torch.from_numpy(np.asarray(pcd.points)).float().cuda()), 0.0000001)
-        scales = torch.log(torch.sqrt(dist2))[...,None].repeat(1, 2)
-        rots = torch.rand((fused_point_cloud.shape[0], 4), device="cuda")
 
-        opacities = self.inverse_opacity_activation(0.1 * torch.ones((fused_point_cloud.shape[0], 1), dtype=torch.float, device="cuda"))
+        scales = torch.log(torch.ones((self.get_xyz.shape[0], 2), device="cuda"))
+        rots = torch.zeros((fused_point_cloud.shape[0], 4), device="cuda")
+        rots[:, 0] = 1
 
+        opacities = inverse_sigmoid(0.1 * torch.ones((fused_point_cloud.shape[0], 1), dtype=torch.float, device="cuda"))
+        
         self._xyz = nn.Parameter(fused_point_cloud.requires_grad_(True))
         self._features_dc = nn.Parameter(features[:,:,0:1].transpose(1, 2).contiguous().requires_grad_(True))
         self._features_rest = nn.Parameter(features[:,:,1:].transpose(1, 2).contiguous().requires_grad_(True))
