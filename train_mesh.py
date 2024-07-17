@@ -97,7 +97,6 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
 
         pos_loss = F.relu((gaussians._xyz*gaussians.face_scaling[gaussians.binding])[visibility_filter] - opt.threshold_xyz).norm(dim=1).mean() * opt.lambda_xyz
           
-                
         scale_loss = F.relu(gaussians.get_scaling[visibility_filter] - opt.threshold_scale).norm(dim=1).mean() * opt.lambda_scale
               
         

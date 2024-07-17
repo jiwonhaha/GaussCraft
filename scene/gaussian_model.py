@@ -22,7 +22,6 @@ from utils.graphics_utils import BasicPointCloud
 from utils.general_utils import strip_symmetric, build_scaling_rotation
 
 from roma import quat_product, quat_xyzw_to_wxyz, quat_wxyz_to_xyzw
-
 class GaussianModel:
 
     def setup_functions(self):
@@ -42,17 +41,12 @@ class GaussianModel:
         self.inverse_opacity_activation = inverse_sigmoid
         self.rotation_activation = torch.nn.functional.normalize
 
-        # Toyota Motor Europe NV/SA and its affiliated companies retain all intellectual property and proprietary rights in and to the following code lines and related documentation. Any commercial use, reproduction, disclosure or distribution of these code lines and related documentation without an express license agreement from Toyota Motor Europe NV/SA is strictly prohibited.
-        # for binding GaussianModel to a mesh
         self.face_center = None
         self.face_scaling = None
         self.face_orien_mat = None
         self.face_orien_quat = None
-        self.binding = None  # gaussian index to face index
-        self.binding_counter = None  # number of points bound to each face
-        self.timestep = None  # the current timestep
-        self.num_timesteps = 1  # required by viewers
-
+        self.binding = None
+        self.binding_counter = None
 
     def __init__(self, sh_degree : int):
         self.active_sh_degree = 0
@@ -85,6 +79,12 @@ class GaussianModel:
             self.denom,
             self.optimizer.state_dict(),
             self.spatial_lr_scale,
+            self.face_center,
+            self.face_scaling,
+            self.face_orien_mat,
+            self.face_orien_quat,
+            self.binding,
+            self.binding_counter
         )
     
     def restore(self, model_args, training_args):
@@ -99,7 +99,14 @@ class GaussianModel:
         xyz_gradient_accum, 
         denom,
         opt_dict, 
-        self.spatial_lr_scale) = model_args
+        self.spatial_lr_scale,
+        self.face_center,
+        self.face_scaling,
+        self.face_orien_mat,
+        self.face_orien_quat,
+        self.binding,
+        self.binding_counter
+        ) = model_args
         self.training_setup(training_args)
         self.xyz_gradient_accum = xyz_gradient_accum
         self.denom = denom
@@ -107,42 +114,37 @@ class GaussianModel:
 
     @property
     def get_scaling(self):
-        if self.binding is None:
-            return self.scaling_activation(self._scaling)
-        else:
-            # Toyota Motor Europe NV/SA and its affiliated companies retain all intellectual property and proprietary rights in and to the following code lines and related documentation. Any commercial use, reproduction, disclosure or distribution of these code lines and related documentation without an express license agreement from Toyota Motor Europe NV/SA is strictly prohibited.
-            if self.face_scaling is None:
-                self.select_mesh_by_timestep(0)
+        scaling = self.scaling_activation(self._scaling)
+        return scaling * self.face_scaling[self.binding]
 
-            scaling = self.scaling_activation(self._scaling)
-            return scaling * self.face_scaling[self.binding]
-
-    
     @property
     def get_rotation(self):
-        if self.binding is None:
-            return self.rotation_activation(self._rotation)
-        else:
-            # Toyota Motor Europe NV/SA and its affiliated companies retain all intellectual property and proprietary rights in and to the following code lines and related documentation. Any commercial use, reproduction, disclosure or distribution of these code lines and related documentation without an express license agreement from Toyota Motor Europe NV/SA is strictly prohibited.
+        rot = self.rotation_activation(self._rotation)
+        face_orien_quat = self.rotation_activation(self.face_orien_quat[self.binding])
+        
+        def quaternion_to_2d_rotation_matrix(quat):
+            w, x, y, z = quat[..., 0], quat[..., 1], quat[..., 2], quat[..., 3]
+            rot_matrix_2d = torch.zeros(quat.shape[:-1] + (2, 2), device=quat.device)
+            rot_matrix_2d[..., 0, 0] = 1 - 2 * (y**2 + z**2)
+            rot_matrix_2d[..., 0, 1] = 2 * (x * y - z * w)
+            rot_matrix_2d[..., 1, 0] = 2 * (x * y + z * w)
+            rot_matrix_2d[..., 1, 1] = 1 - 2 * (x**2 + y**2)
+            return rot_matrix_2d
 
-            # always need to normalize the rotation quaternions before chaining them
-            rot = self.rotation_activation(self._rotation)
-            face_orien_quat = self.rotation_activation(self.face_orien_quat[self.binding])
-            return quat_xyzw_to_wxyz(quat_product(quat_wxyz_to_xyzw(face_orien_quat), quat_wxyz_to_xyzw(rot)))  # roma
-            # return quaternion_multiply(face_orien_quat, rot)  # pytorch3d
-    
+        rot_mat_2d = quaternion_to_2d_rotation_matrix(quat_wxyz_to_xyzw(rot))
+        face_orien_mat_2d = quaternion_to_2d_rotation_matrix(quat_wxyz_to_xyzw(face_orien_quat))
+        combined_rot_mat_2d = torch.matmul(face_orien_mat_2d, rot_mat_2d)
+        combined_rot_flattened = combined_rot_mat_2d.view(combined_rot_mat_2d.shape[0], -1)
+        return combined_rot_flattened
+
     @property
     def get_xyz(self):
-        if self.binding is None:
-            return self._xyz
-        else:
-            # Toyota Motor Europe NV/SA and its affiliated companies retain all intellectual property and proprietary rights in and to the following code lines and related documentation. Any commercial use, reproduction, disclosure or distribution of these code lines and related documentation without an express license agreement from Toyota Motor Europe NV/SA is strictly prohibited.
-            if self.face_center is None:
-                self.select_mesh_by_timestep(0)
-            
-            xyz = torch.bmm(self.face_orien_mat[self.binding], self._xyz[..., None]).squeeze(-1)
-            return xyz * self.face_scaling[self.binding] + self.face_center[self.binding]
-    
+        if self.face_orien_mat is None or self.binding is None:
+            raise ValueError("face_orien_mat or binding is not initialized.")
+        
+        xyz = torch.bmm(self.face_orien_mat[self.binding], self._xyz[..., None]).squeeze(-1)
+        return xyz * self.face_scaling[self.binding] + self.face_center[self.binding]
+
     @property
     def get_features(self):
         features_dc = self._features_dc
@@ -174,7 +176,6 @@ class GaussianModel:
         self._features_dc = nn.Parameter(features[:,:,0:1].transpose(1, 2).contiguous().requires_grad_(True))
         self._features_rest = nn.Parameter(features[:,:,1:].transpose(1, 2).contiguous().requires_grad_(True))
         print("Number of points at initialisation: ", self.get_xyz.shape[0])
-
 
         scales = torch.log(torch.ones((self.get_xyz.shape[0], 2), device="cuda"))
         rots = torch.zeros((fused_point_cloud.shape[0], 4), device="cuda")
@@ -211,7 +212,6 @@ class GaussianModel:
                                                     max_steps=training_args.position_lr_max_steps)
 
     def update_learning_rate(self, iteration):
-        ''' Learning rate scheduling per step '''
         for param_group in self.optimizer.param_groups:
             if param_group["name"] == "xyz":
                 lr = self.xyz_scheduler_args(iteration)
@@ -220,7 +220,6 @@ class GaussianModel:
 
     def construct_list_of_attributes(self):
         l = ['x', 'y', 'z', 'nx', 'ny', 'nz']
-        # All channels except the 3 DC
         for i in range(self._features_dc.shape[1]*self._features_dc.shape[2]):
             l.append('f_dc_{}'.format(i))
         for i in range(self._features_rest.shape[1]*self._features_rest.shape[2]):
@@ -275,7 +274,6 @@ class GaussianModel:
         features_extra = np.zeros((xyz.shape[0], len(extra_f_names)))
         for idx, attr_name in enumerate(extra_f_names):
             features_extra[:, idx] = np.asarray(plydata.elements[0][attr_name])
-        # Reshape (P,F*SH_coeffs) to (P, F, SH_coeffs except DC)
         features_extra = features_extra.reshape((features_extra.shape[0], 3, (self.max_sh_degree + 1) ** 2 - 1))
 
         scale_names = [p.name for p in plydata.elements[0].properties if p.name.startswith("scale_")]
@@ -393,7 +391,6 @@ class GaussianModel:
 
     def densify_and_split(self, grads, grad_threshold, scene_extent, N=2):
         n_init_points = self.get_xyz.shape[0]
-        # Extract points that satisfy the gradient condition
         padded_grad = torch.zeros((n_init_points), device="cuda")
         padded_grad[:grads.shape[0]] = grads.squeeze()
         selected_pts_mask = torch.where(padded_grad >= grad_threshold, True, False)
@@ -418,7 +415,6 @@ class GaussianModel:
         self.prune_points(prune_filter)
 
     def densify_and_clone(self, grads, grad_threshold, scene_extent):
-        # Extract points that satisfy the gradient condition
         selected_pts_mask = torch.where(torch.norm(grads, dim=-1) >= grad_threshold, True, False)
         selected_pts_mask = torch.logical_and(selected_pts_mask,
                                               torch.max(self.get_scaling, dim=1).values <= self.percent_dense*scene_extent)
@@ -451,3 +447,4 @@ class GaussianModel:
     def add_densification_stats(self, viewspace_point_tensor, update_filter):
         self.xyz_gradient_accum[update_filter] += torch.norm(viewspace_point_tensor.grad[update_filter], dim=-1, keepdim=True)
         self.denom[update_filter] += 1
+

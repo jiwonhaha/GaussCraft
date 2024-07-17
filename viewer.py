@@ -32,6 +32,7 @@ class Viewer:
             self,
             args, 
             model_paths: str,
+            mesh: str,  # Add mesh argument here
             source_path: str = '',
             host: str = "0.0.0.0",
             port: int = 8080,
@@ -47,8 +48,8 @@ class Viewer:
             default_camera_look_at: List = None,
             no_edit_panel: bool = False,
             no_render_panel: bool = False,
-            iterations: int=30000,
-            crop_box_size: float=16.0,
+            iterations: int = 30000,
+            crop_box_size: float = 16.0,
             from_direct_path: str = None, 
             is_training: bool = False,
     ):
@@ -66,6 +67,7 @@ class Viewer:
         }
         self.args = args 
         self.model_paths = model_paths[0]
+        self.mesh = mesh  # Store mesh argument
         self.source_path = source_path
         self.cameras_json = os.path.join(self.model_paths, "cameras.json") if cameras_json is None else cameras_json
 
@@ -97,11 +99,12 @@ class Viewer:
         
     def _init_models(self, iterations):
         # init gaussian model & renderer
-        self.gaussian_model = GaussianModel(sh_degree=self.sh_degree)
+        mesh = trimesh.load(self.mesh)  # Use self.mesh here
+        self.gaussian_model = GaussianModel(mesh, sh_degree=self.sh_degree)
         if not self.is_training:
             self.iteration = iterations
             if not self.model_paths.lower().endswith('.ply'):
-                self.ply_path = os.path.join(self.model_paths, "point_cloud", f"iteration_{30000}", "point_cloud.ply")
+                self.ply_path = os.path.join(self.model_paths, "point_cloud", f"iteration_{iterations}", "point_cloud.ply")
             else:
                 self.ply_path = self.model_paths
             if not os.path.exists(self.ply_path):
@@ -536,6 +539,8 @@ if __name__ == "__main__":
     parser.add_argument("--crop_box_size", type=float, default=16.0)
     parser.add_argument("--float32_matmul_precision", "--fp", type=str, default=None)
     parser.add_argument("--from_direct_path", type=str, default=None)
+    parser.add_argument('--mesh_path', type=str, help='Path to the mesh file')
+
     args, unknown_args = parser.parse_known_args()
 
     # set torch float32_matmul_precision
@@ -554,7 +559,11 @@ if __name__ == "__main__":
     else:
         args.background_color = tuple([float(i) for i in args.background_color])
 
-    # create viewer
-    viewer_init_args = {key: getattr(args, key) for key in vars(args)}
-    viewer = Viewer(args, **viewer_init_args)
+    if args.mesh_path:
+        mesh_path = os.path.abspath(args.mesh_path)
+        print(f"Using mesh file at: {mesh_path}")
+        args._mesh = mesh_path  # Store the mesh path for internal use if needed
+
+    # Create viewer
+    viewer = Viewer(args, model_paths=args.model_paths, mesh=mesh_path)
     viewer.start()

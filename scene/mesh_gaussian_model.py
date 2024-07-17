@@ -36,6 +36,7 @@ class MeshGaussianModel(GaussianModel):
             self.verts, self.faces, return_scale=True
         )
         self.face_orien_quat = quat_xyzw_to_wxyz(rotmat_to_unitquat(self.face_orien_mat))
+
         
     def update_binding(self):
         # Ensure vertices and faces are available
@@ -59,19 +60,19 @@ class MeshGaussianModel(GaussianModel):
         # Update binding
         self.binding = closest_face_indices
 
-    def capture(self):
-        """Capture the current state of the Gaussian model, including binding."""
-        state = super().capture()
-        state['verts'] = self.verts
-        state['faces'] = self.faces
-        state['binding'] = self.binding
-        return state
+    # def capture(self):
+    #     """Capture the current state of the Gaussian model, including binding."""
+    #     state = super().capture()
+    #     state['verts'] = self.verts
+    #     state['faces'] = self.faces
+    #     state['binding'] = self.binding
+    #     return state
 
-    def restore(self, state, opt):
-        """Restore the Gaussian model from the given state, including binding."""
-        super().restore(state, opt)
-        self.verts = state['verts']
-        self.faces = state['faces']
-        self.binding = state['binding']
+    # def restore(self, state, opt):
+    #     """Restore the Gaussian model from the given state, including binding."""
+    #     super().restore(state, opt)
+    #     self.verts = state['verts']
+    #     self.faces = state['faces']
+    #     self.binding = state['binding']
 
 
