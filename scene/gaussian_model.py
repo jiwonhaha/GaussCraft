@@ -112,38 +112,36 @@ class GaussianModel:
         self.denom = denom
         self.optimizer.load_state_dict(opt_dict)
 
+    # @property
+    # def get_scaling(self):
+    #     return self.scaling_activation(self._scaling) #.clamp(max=1)
+    
+    # @property
+    # def get_rotation(self):
+    #     return self.rotation_activation(self._rotation)
+    
+    # @property
+    # def get_xyz(self):
+    #     return self._xyz
+
+
     @property
     def get_scaling(self):
         scaling = self.scaling_activation(self._scaling)
         return scaling * self.face_scaling[self.binding]
-
+    
     @property
     def get_rotation(self):
+        # always need to normalize the rotation quaternions before chaining them
         rot = self.rotation_activation(self._rotation)
         face_orien_quat = self.rotation_activation(self.face_orien_quat[self.binding])
-        
-        def quaternion_to_2d_rotation_matrix(quat):
-            w, x, y, z = quat[..., 0], quat[..., 1], quat[..., 2], quat[..., 3]
-            rot_matrix_2d = torch.zeros(quat.shape[:-1] + (2, 2), device=quat.device)
-            rot_matrix_2d[..., 0, 0] = 1 - 2 * (y**2 + z**2)
-            rot_matrix_2d[..., 0, 1] = 2 * (x * y - z * w)
-            rot_matrix_2d[..., 1, 0] = 2 * (x * y + z * w)
-            rot_matrix_2d[..., 1, 1] = 1 - 2 * (x**2 + y**2)
-            return rot_matrix_2d
-
-        rot_mat_2d = quaternion_to_2d_rotation_matrix(quat_wxyz_to_xyzw(rot))
-        face_orien_mat_2d = quaternion_to_2d_rotation_matrix(quat_wxyz_to_xyzw(face_orien_quat))
-        combined_rot_mat_2d = torch.matmul(face_orien_mat_2d, rot_mat_2d)
-        combined_rot_flattened = combined_rot_mat_2d.view(combined_rot_mat_2d.shape[0], -1)
-        return combined_rot_flattened
-
+        return quat_xyzw_to_wxyz(quat_product(quat_wxyz_to_xyzw(face_orien_quat), quat_wxyz_to_xyzw(rot)))  # roma
+    
     @property
     def get_xyz(self):
-        if self.face_orien_mat is None or self.binding is None:
-            raise ValueError("face_orien_mat or binding is not initialized.")
-        
         xyz = torch.bmm(self.face_orien_mat[self.binding], self._xyz[..., None]).squeeze(-1)
         return xyz * self.face_scaling[self.binding] + self.face_center[self.binding]
+    
 
     @property
     def get_features(self):
@@ -241,6 +239,11 @@ class GaussianModel:
         opacities = self._opacity.detach().cpu().numpy()
         scale = self._scaling.detach().cpu().numpy()
         rotation = self._rotation.detach().cpu().numpy()
+        binding = self.binding.detach().cpu().numpy()
+        binding_counter = self.binding_counter.detach().cpu().numpy()
+
+
+        
 
         dtype_full = [(attribute, 'f4') for attribute in self.construct_list_of_attributes()]
 
@@ -249,6 +252,11 @@ class GaussianModel:
         elements[:] = list(map(tuple, attributes))
         el = PlyElement.describe(elements, 'vertex')
         PlyData([el]).write(path)
+
+        # Save binding and binding_counter separately
+        np.save(os.path.join(os.path.dirname(path), "binding.npy"), binding)
+        np.save(os.path.join(os.path.dirname(path), "binding_counter.npy"), binding_counter)
+
 
     def reset_opacity(self):
         opacities_new = self.inverse_opacity_activation(torch.min(self.get_opacity, torch.ones_like(self.get_opacity)*0.01))
@@ -269,21 +277,21 @@ class GaussianModel:
         features_dc[:, 2, 0] = np.asarray(plydata.elements[0]["f_dc_2"])
 
         extra_f_names = [p.name for p in plydata.elements[0].properties if p.name.startswith("f_rest_")]
-        extra_f_names = sorted(extra_f_names, key = lambda x: int(x.split('_')[-1]))
-        assert len(extra_f_names)==3*(self.max_sh_degree + 1) ** 2 - 3
+        extra_f_names = sorted(extra_f_names, key=lambda x: int(x.split('_')[-1]))
+        assert len(extra_f_names) == 3 * (self.max_sh_degree + 1) ** 2 - 3
         features_extra = np.zeros((xyz.shape[0], len(extra_f_names)))
         for idx, attr_name in enumerate(extra_f_names):
             features_extra[:, idx] = np.asarray(plydata.elements[0][attr_name])
         features_extra = features_extra.reshape((features_extra.shape[0], 3, (self.max_sh_degree + 1) ** 2 - 1))
 
         scale_names = [p.name for p in plydata.elements[0].properties if p.name.startswith("scale_")]
-        scale_names = sorted(scale_names, key = lambda x: int(x.split('_')[-1]))
+        scale_names = sorted(scale_names, key=lambda x: int(x.split('_')[-1]))
         scales = np.zeros((xyz.shape[0], len(scale_names)))
         for idx, attr_name in enumerate(scale_names):
             scales[:, idx] = np.asarray(plydata.elements[0][attr_name])
 
         rot_names = [p.name for p in plydata.elements[0].properties if p.name.startswith("rot")]
-        rot_names = sorted(rot_names, key = lambda x: int(x.split('_')[-1]))
+        rot_names = sorted(rot_names, key=lambda x: int(x.split('_')[-1]))
         rots = np.zeros((xyz.shape[0], len(rot_names)))
         for idx, attr_name in enumerate(rot_names):
             rots[:, idx] = np.asarray(plydata.elements[0][attr_name])
@@ -295,7 +303,22 @@ class GaussianModel:
         self._scaling = nn.Parameter(torch.tensor(scales, dtype=torch.float, device="cuda").requires_grad_(True))
         self._rotation = nn.Parameter(torch.tensor(rots, dtype=torch.float, device="cuda").requires_grad_(True))
 
+        binding_path = os.path.join(os.path.dirname(path), "binding.npy")
+        binding_counter_path = os.path.join(os.path.dirname(path), "binding_counter.npy")
+
+        # Load binding and binding_counter separately if the files exist
+        if os.path.exists(binding_path) and os.path.exists(binding_counter_path):
+            binding = np.load(binding_path)
+            binding_counter = np.load(binding_counter_path)
+            self.binding = torch.tensor(binding, dtype=torch.int32, device="cuda")
+            self.binding_counter = torch.tensor(binding_counter, dtype=torch.int32, device="cuda")
+        else:
+            self.binding = None
+            self.binding_counter = None
+
         self.active_sh_degree = self.max_sh_degree
+
+
 
     def replace_tensor_to_optimizer(self, tensor, name):
         optimizable_tensors = {}
@@ -331,6 +354,15 @@ class GaussianModel:
         return optimizable_tensors
 
     def prune_points(self, mask):
+
+        # make sure each face is bound to at least one point after pruning
+        binding_to_prune = self.binding[mask]
+        counter_prune = torch.zeros_like(self.binding_counter)
+        counter_prune.scatter_add_(0, binding_to_prune, torch.ones_like(binding_to_prune, dtype=torch.int32, device="cuda"))
+        mask_redundant = (self.binding_counter - counter_prune) > 0
+        mask[mask.clone()] = mask_redundant[binding_to_prune]
+
+
         valid_points_mask = ~mask
         optimizable_tensors = self._prune_optimizer(valid_points_mask)
 
@@ -345,6 +377,10 @@ class GaussianModel:
 
         self.denom = self.denom[valid_points_mask]
         self.max_radii2D = self.max_radii2D[valid_points_mask]
+
+        #mesh
+        self.binding_counter.scatter_add_(0, self.binding[mask], -torch.ones_like(self.binding[mask], dtype=torch.int32, device="cuda"))
+        self.binding = self.binding[valid_points_mask]
 
     def cat_tensors_to_optimizer(self, tensors_dict):
         optimizable_tensors = {}
@@ -409,8 +445,15 @@ class GaussianModel:
         new_features_rest = self._features_rest[selected_pts_mask].repeat(N,1,1)
         new_opacity = self._opacity[selected_pts_mask].repeat(N,1)
 
+        #mesh
+        new_binding = self.binding[selected_pts_mask].repeat(N)
+        self.binding = torch.cat((self.binding, new_binding))
+        self.binding_counter.scatter_add_(0, new_binding, torch.ones_like(new_binding, dtype=torch.int32, device="cuda"))
+
+
         self.densification_postfix(new_xyz, new_features_dc, new_features_rest, new_opacity, new_scaling, new_rotation)
 
+        
         prune_filter = torch.cat((selected_pts_mask, torch.zeros(N * selected_pts_mask.sum(), device="cuda", dtype=bool)))
         self.prune_points(prune_filter)
 
@@ -425,6 +468,12 @@ class GaussianModel:
         new_opacities = self._opacity[selected_pts_mask]
         new_scaling = self._scaling[selected_pts_mask]
         new_rotation = self._rotation[selected_pts_mask]
+
+        #mesh
+        new_binding = self.binding[selected_pts_mask]
+        self.binding = torch.cat((self.binding, new_binding))
+        self.binding_counter.scatter_add_(0, new_binding, torch.ones_like(new_binding, dtype=torch.int32, device="cuda"))
+        
 
         self.densification_postfix(new_xyz, new_features_dc, new_features_rest, new_opacities, new_scaling, new_rotation)
 

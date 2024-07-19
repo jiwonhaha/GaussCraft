@@ -60,6 +60,8 @@ class MeshGaussianModel(GaussianModel):
         # Update binding
         self.binding = closest_face_indices
 
+        
+
     # def capture(self):
     #     """Capture the current state of the Gaussian model, including binding."""
     #     state = super().capture()
