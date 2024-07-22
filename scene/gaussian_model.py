@@ -41,12 +41,6 @@ class GaussianModel:
         self.inverse_opacity_activation = inverse_sigmoid
         self.rotation_activation = torch.nn.functional.normalize
 
-        self.face_center = None
-        self.face_scaling = None
-        self.face_orien_mat = None
-        self.face_orien_quat = None
-        self.binding = None
-        self.binding_counter = None
 
     def __init__(self, sh_degree : int):
         self.active_sh_degree = 0
@@ -128,7 +122,7 @@ class GaussianModel:
     @property
     def get_scaling(self):
         scaling = self.scaling_activation(self._scaling)
-        return scaling * self.face_scaling[self.binding]
+        return scaling #* self.face_scaling[self.binding]
     
     @property
     def get_rotation(self):

@@ -10,6 +10,12 @@ class MeshGaussianModel(GaussianModel):
         self.verts = None
         self.faces = None 
         self.binding = None #splattings to faces
+        self.binding_counter = None
+
+        self.face_center = None
+        self.face_scaling = None
+        self.face_orien_mat = None
+        self.face_orien_quat = None
 
         self.load_mesh(mesh)
 
