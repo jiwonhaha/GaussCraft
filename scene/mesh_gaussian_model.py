@@ -66,20 +66,20 @@ class MeshGaussianModel(GaussianModel):
         # Update binding
         self.binding = closest_face_indices
 
-    def training_setup(self, training_args):
-        """
-        Sets up the training environment by enabling gradients for the necessary parameters
-        and adding them to the optimizer.
+    # def training_setup(self, training_args):
+    #     """
+    #     Sets up the training environment by enabling gradients for the necessary parameters
+    #     and adding them to the optimizer.
         
-        Parameters:
-            training_args (object): An object containing training arguments such as learning rates.
-        """
-        super().training_setup(training_args)
+    #     Parameters:
+    #         training_args (object): An object containing training arguments such as learning rates.
+    #     """
+    #     super().training_setup(training_args)
 
-        # Enabling gradients for the mesh vertices
-        self.verts.requires_grad = True
-        param_verts = {'params': [self.verts], 'lr': 0.1, "name": "verts"}
-        self.optimizer.add_param_group(param_verts)
+    #     # Enabling gradients for the mesh vertices
+    #     self.verts.requires_grad = True
+    #     param_verts = {'params': [self.verts], 'lr': 0.1, "name": "verts"}
+    #     self.optimizer.add_param_group(param_verts)
 
         
 
