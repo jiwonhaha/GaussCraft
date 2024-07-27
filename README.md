@@ -10,8 +10,10 @@ This repo is editable 2D gaussian splatting by using ARAP mesh deformation.
 - If not, follow the installation instruction from the original 2D GS
 
 ```bash
-git clone https://github.com/hwanhuh/2D-GS-Viser-Viewer.git --recursive
-cd 2D-GS-Viser-Viewer
+git clone https://github.com/jiwonhaha/cgvi_thesis.git --recursive
+cd cgvi_thesis
+conda env create --file environment.yml
+conda activate surfel_splatting
 pip install viser==0.1.29
 pip install splines  
 pip install lightning
@@ -20,9 +22,14 @@ pip install lightning
 ## Usage
 - View a 2D GS ply file 
 ```bash
-python viewer.py <path to pre-trained model> <or direct path to the ply file> -s <data source path>
-### enable transform mode
-python viewer.py <path to pre-trained model> -s <data source path> --enable_transform
+python train_mesh.py -s <data source path> -m <output data path> 
+# use original 2dGS code
+python render.py -s <data source path> -m <output data path> --depth_ratio 1 --skip_test --skip_train
+# to extract mesh
+python train_mesh.py -s <data source path> -m <output data path> --mesh_path <path to original mesh>
+# To train 2DGS with binding to mesh
+python viewer.py <path to pre-trained model> <or direct path to the ply file> -s <data source path> --mesh_path <path to deformed mesh>
+#Can view deformed rendering
 ```
 - Train w/ viewer
 ```bash
