@@ -40,26 +40,24 @@ If you already have the conda environment for 2D GS, you can use it directly. Ot
     python train_mesh.py -s <data source path> -m <output data path>
     ```
 
-2. Render the 2D GS:
+2. Extract the mesh:
     ```bash
     python render.py -s <data source path> -m <output data path> --depth_ratio 1 --skip_test --skip_train
     ```
 
 ### Extracting and Training the Mesh
 
-1. Extract the mesh:
+1. Train 2D GS with binding to the mesh:
     ```bash
     python train_mesh.py -s <data source path> -m <output data path> --mesh_path <path to original mesh>
     ```
 
-2. Train 2D GS with binding to the mesh:
+2. Using ARAP Mesh Deformation:
     ```bash
     python arap.py <path to original mesh> handle_vertex_index move_scale how_many_static_vertices_around_static_vertex given_static_vertex_index
     ```
 
-### Using ARAP Mesh Deformation
-
-1. View the deformed rendering:
+3. View the deformed rendering:
     ```bash
     python viewer.py <path to pre-trained model> <or direct path to the ply file> -s <data source path> --mesh_path <path to deformed mesh>
     ```
