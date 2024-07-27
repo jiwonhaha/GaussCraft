@@ -29,6 +29,11 @@ class MeshGaussianModel(GaussianModel):
         """Load a single general triangular mesh."""
         self.verts = torch.tensor(mesh.vertices, dtype=torch.float32).cuda()
         self.faces = torch.tensor(mesh.faces, dtype=torch.int32).cuda()
+
+        # # Scale the vertices by 100
+        # self.verts *= 10
+        
+
         self.update_mesh_properties()
 
     def update_mesh_properties(self):
@@ -53,18 +58,18 @@ class MeshGaussianModel(GaussianModel):
         faces = self.faces.cuda()
         verts = self.verts.cuda()
 
-        # Compute the distance from each point to each face centroid
-        point_expanded = self.get_xyz.unsqueeze(1)  # Shape: (num_points, 1, 3)
-        centroid_expanded = self.face_center.unsqueeze(0)  # Shape: (1, num_faces, 3)
+        # # Compute the distance from each point to each face centroid
+        # point_expanded = self.get_xyz.unsqueeze(1)  # Shape: (num_points, 1, 3)
+        # centroid_expanded = self.face_center.unsqueeze(0)  # Shape: (1, num_faces, 3)
 
-        # Calculate distances
-        distances = torch.norm(point_expanded - centroid_expanded, dim=2)  # Shape: (num_points, num_faces)
+        # # Calculate distances
+        # distances = torch.norm(point_expanded - centroid_expanded, dim=2)  # Shape: (num_points, num_faces)
 
-        # Find the index of the closest face for each point
-        closest_face_indices = torch.argmin(distances, dim=1)
+        # # Find the index of the closest face for each point
+        # closest_face_indices = torch.argmin(distances, dim=1)
 
-        # Update binding
-        self.binding = closest_face_indices
+        # # Update binding
+        # self.binding = closest_face_indices
 
     # def training_setup(self, training_args):
     #     """
