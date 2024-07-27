@@ -102,5 +102,3 @@ class MeshGaussianModel(GaussianModel):
     #     self.verts = state['verts']
     #     self.faces = state['faces']
     #     self.binding = state['binding']
-
-
