@@ -1,5 +1,4 @@
-# Simple Viser Viewer for 2D Gaussian Splatting for Geometrically Accurate Radiance Fields
-
+# Editable 2D Gaussian Splatting with As-Rigid-As-Possible Mesh Deformation
 [Editable 2D GS](https://github.com/jiwonhaha/cgvi_thesis)
 
 This repository provides an editable 2D Gaussian splatting implementation using ARAP mesh deformation.
