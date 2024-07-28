@@ -9,12 +9,16 @@ This repository provides an editable 2D Gaussian splatting implementation using 
 
 <div style="display: flex;">
     <div style="flex: 1; padding: 5px;">
+        Original object
         <img src="figure/banana.png" alt="Original Banana" style="width: 100%;">
     </div>
     <div style="flex: 1; padding: 5px;">
+        Deformed object
         <img src="figure/banana_bent.png" alt="Bent Banana" style="width: 100%;">
     </div>
 </div>
+
+
 ## Installation
 
 ### Using an Existing Conda Environment
