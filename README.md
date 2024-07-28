@@ -15,7 +15,6 @@ This repository provides an editable 2D Gaussian splatting implementation using 
         <img src="figure/banana_bent.png" alt="Bent Banana" style="width: 100%;">
     </div>
 </div>
-
 ## Installation
 
 ### Using an Existing Conda Environment
