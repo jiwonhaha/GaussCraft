@@ -4,6 +4,18 @@
 
 This repository provides an editable 2D Gaussian splatting implementation using ARAP mesh deformation.
 
+
+### Result Images
+
+<div style="display: flex;">
+    <div style="flex: 1; padding: 5px;">
+        <img src="figure/banana.png" alt="Original Banana" style="width: 100%;">
+    </div>
+    <div style="flex: 1; padding: 5px;">
+        <img src="figure/banana_bent.png" alt="Bent Banana" style="width: 100%;">
+    </div>
+</div>
+
 ## Installation
 
 ### Using an Existing Conda Environment
@@ -37,7 +49,7 @@ If you already have the conda environment for 2D GS, you can use it directly. Ot
 
 1. Use the original 2D GS code to start:
     ```bash
-    python train_mesh.py -s <data source path> -m <output data path>
+    python train.py -s <data source path> -m <output data path>
     ```
 
 2. Extract the mesh:
@@ -49,7 +61,7 @@ If you already have the conda environment for 2D GS, you can use it directly. Ot
 
 1. Train 2D GS with binding to the mesh:
     ```bash
-    python train_mesh.py -s <data source path> -m <output data path> --mesh_path <path to original mesh>
+    python train.py -s <data source path> -m <output data path> --mesh_path <path to original mesh>
     ```
 
 2. Using ARAP Mesh Deformation:
