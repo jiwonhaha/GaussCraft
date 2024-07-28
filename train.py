@@ -11,8 +11,6 @@
 
 from PIL import Image
 import numpy as np
-
-
 import os
 import torch
 import torch.nn.functional as F
@@ -39,12 +37,18 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
     first_iter = 0
     tb_writer = prepare_output_and_logger(dataset)
 
+    # Initialise mesh
+    mesh = None  # Default to None
 
-    mesh = trimesh.load(dataset.mesh_path)
+    if dataset.mesh_path:
+        print(f"Loading mesh from {dataset.mesh_path}")
+        mesh = trimesh.load(dataset.mesh_path)
+    else:
+        print("No mesh path provided, proceeding without mesh.")
+
     gaussians = MeshGaussianModel(mesh, dataset.sh_degree)
     scene = Scene(dataset, gaussians, mesh)
     gaussians.training_setup(opt)
-
 
     if checkpoint:
         (model_params, first_iter) = torch.load(checkpoint)
@@ -53,8 +57,8 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
     bg_color = [1, 1, 1] if dataset.white_background else [0, 0, 0]
     background = torch.tensor(bg_color, dtype=torch.float32, device="cuda")
 
-    iter_start = torch.cuda.Event(enable_timing = True)
-    iter_end = torch.cuda.Event(enable_timing = True)
+    iter_start = torch.cuda.Event(enable_timing=True)
+    iter_end = torch.cuda.Event(enable_timing=True)
 
     viewpoint_stack = None
     ema_loss_for_log = 0.0
@@ -88,31 +92,28 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         
         is_image_good(image, gt_image, iteration)
 
-        # regularization
+        # Regularization
         lambda_normal = opt.lambda_normal if iteration > 7000 else 0.0
         lambda_dist = opt.lambda_dist if iteration > 3000 else 0.0
 
         rend_dist = render_pkg["rend_dist"]
-        rend_normal  = render_pkg['rend_normal']
+        rend_normal = render_pkg['rend_normal']
         surf_normal = render_pkg['surf_normal']
         normal_error = (1 - (rend_normal * surf_normal).sum(dim=0))[None]
         normal_loss = lambda_normal * (normal_error).mean()
         dist_loss = lambda_dist * (rend_dist).mean()
 
-        # mesh loss
+        # Total loss calculation
+        total_loss = loss + dist_loss + normal_loss
 
-        pos_loss = F.relu((gaussians._xyz*gaussians.face_scaling[gaussians.binding])[visibility_filter] - opt.threshold_xyz).norm(dim=1).mean() * opt.lambda_xyz
-          
-        scale_loss = F.relu(gaussians.get_scaling[visibility_filter] - opt.threshold_scale).norm(dim=1).mean() * opt.lambda_scale
-              
-        
-        # loss
-        total_loss = loss + + dist_loss + normal_loss +pos_loss + scale_loss
+        if dataset.mesh_path:
+            # Mesh loss
+            pos_loss = F.relu((gaussians._xyz * gaussians.face_scaling[gaussians.binding])[visibility_filter] - opt.threshold_xyz).norm(dim=1).mean() * opt.lambda_xyz
+            scale_loss = F.relu(gaussians.get_scaling[visibility_filter] - opt.threshold_scale).norm(dim=1).mean() * opt.lambda_scale
+            total_loss += pos_loss + scale_loss
         
         total_loss.backward()
         iter_end.record()
-
-
 
         with torch.no_grad():
             # Progress bar
@@ -120,16 +121,14 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
             ema_dist_for_log = 0.4 * dist_loss.item() + 0.6 * ema_dist_for_log
             ema_normal_for_log = 0.4 * normal_loss.item() + 0.6 * ema_normal_for_log
 
-
             if iteration % 10 == 0:
                 loss_dict = {
-                    "Loss": f"{ema_loss_for_log:.{5}f}",
-                    "distort": f"{ema_dist_for_log:.{5}f}",
-                    "normal": f"{ema_normal_for_log:.{5}f}",
+                    "Loss": f"{ema_loss_for_log:.5f}",
+                    "distort": f"{ema_dist_for_log:.5f}",
+                    "normal": f"{ema_normal_for_log:.5f}",
                     "Points": f"{len(gaussians.get_xyz)}"
                 }
                 progress_bar.set_postfix(loss_dict)
-
                 progress_bar.update(10)
             if iteration == opt.iterations:
                 progress_bar.close()
@@ -140,12 +139,11 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 tb_writer.add_scalar('train_loss_patches/normal_loss', ema_normal_for_log, iteration)
 
             training_report(tb_writer, iteration, Ll1, loss, l1_loss, iter_start.elapsed_time(iter_end), testing_iterations, scene, render, (pipe, background))
-            if (iteration in saving_iterations):
+            if iteration in saving_iterations:
                 print("\n[ITER {}] Saving Gaussians".format(iteration))
                 scene.save(iteration)
 
-
-            # # Densification
+            # Densification
             if iteration < opt.densify_until_iter:
                 gaussians.max_radii2D[visibility_filter] = torch.max(gaussians.max_radii2D[visibility_filter], radii[visibility_filter])
                 gaussians.add_densification_stats(viewspace_point_tensor, visibility_filter)
@@ -160,25 +158,23 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
             # Optimizer step
             if iteration < opt.iterations:
                 gaussians.optimizer.step()
-                gaussians.optimizer.zero_grad(set_to_none = True)
+                gaussians.optimizer.zero_grad(set_to_none=True)
 
-            if (iteration in checkpoint_iterations):
+            if iteration in checkpoint_iterations:
                 print("\n[ITER {}] Saving Checkpoint".format(iteration))
                 torch.save((gaussians.capture(), iteration), scene.model_path + "/chkpnt" + str(iteration) + ".pth")
-            
-            gaussians.update_binding()
 
 def prepare_output_and_logger(args):    
     if not args.model_path:
         if os.getenv('OAR_JOB_ID'):
-            unique_str=os.getenv('OAR_JOB_ID')
+            unique_str = os.getenv('OAR_JOB_ID')
         else:
             unique_str = str(uuid.uuid4())
         args.model_path = os.path.join("./output/", unique_str[0:10])
         
     # Set up output folder
     print("Output folder: {}".format(args.model_path))
-    os.makedirs(args.model_path, exist_ok = True)
+    os.makedirs(args.model_path, exist_ok=True)
     with open(os.path.join(args.model_path, "cfg_args"), 'w') as cfg_log_f:
         cfg_log_f.write(str(Namespace(**vars(args))))
 
@@ -191,7 +187,7 @@ def prepare_output_and_logger(args):
     return tb_writer
 
 @torch.no_grad()
-def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_iterations, scene : Scene, renderFunc, renderArgs):
+def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_iterations, scene: Scene, renderFunc, renderArgs):
     if tb_writer:
         tb_writer.add_scalar('train_loss_patches/reg_loss', Ll1.item(), iteration)
         tb_writer.add_scalar('train_loss_patches/total_loss', loss.item(), iteration)
@@ -201,8 +197,9 @@ def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_i
     # Report test and samples of training set
     if iteration in testing_iterations:
         torch.cuda.empty_cache()
-        validation_configs = ({'name': 'test', 'cameras' : scene.getTestCameras()}, 
-                              {'name': 'train', 'cameras' : [scene.getTrainCameras()[idx % len(scene.getTrainCameras())] for idx in range(5, 30, 5)]})
+        validation_configs = ({
+            'name': 'test', 'cameras': scene.getTestCameras()},
+            {'name': 'train', 'cameras': [scene.getTrainCameras()[idx % len(scene.getTrainCameras())] for idx in range(5, 30, 5)]})
 
         for config in validation_configs:
             if config['cameras'] and len(config['cameras']) > 0:
@@ -250,7 +247,6 @@ def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_i
 
         torch.cuda.empty_cache()
 
-
 def save_image(tensor, path):
     """
     Save a tensor as an image to the specified path.
@@ -265,9 +261,7 @@ def save_image(tensor, path):
     image.save(path)
 
 def is_image_good(rendered_image, ground_truth_image, iteration, save_dir="rendered_images"):
-    
-
-    is_good = iteration %1000 ==0
+    is_good = iteration % 1000 == 0
 
     if is_good:
         os.makedirs(save_dir, exist_ok=True)
@@ -275,7 +269,6 @@ def is_image_good(rendered_image, ground_truth_image, iteration, save_dir="rende
         save_image(ground_truth_image, os.path.join(save_dir, f"ground_truth_image_{iteration}.png"))
 
     return is_good
-
 
 if __name__ == "__main__":
     # Set up command line argument parser
@@ -290,14 +283,12 @@ if __name__ == "__main__":
     parser.add_argument("--save_iterations", nargs="+", type=int, default=[7_000, 30_000])
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument("--checkpoint_iterations", nargs="+", type=int, default=[])
-    parser.add_argument("--start_checkpoint", type=str, default = None)
-
+    parser.add_argument("--start_checkpoint", type=str, default=None)
     parser.add_argument('--mesh', type=str, help='Path to the mesh file')  # No shorthand
 
     args = parser.parse_args(sys.argv[1:])
-    args = parser.parse_args(sys.argv[1:])
     args.save_iterations.append(args.iterations)
-    
+
     print("Optimizing " + args.model_path)
 
     # Initialize system state (RNG)
@@ -307,12 +298,11 @@ if __name__ == "__main__":
     if args.mesh:
         mesh_path = os.path.abspath(args.mesh)
         print(f"Using mesh file at: {mesh_path}")
-        args._mesh = mesh_path  # Ensure mesh is included in args
+        args.mesh_path = mesh_path  # Ensure mesh is included in args
 
     # Start GUI server, configure and run training
-    # network_gui.init(args.ip, args.port)
     torch.autograd.set_detect_anomaly(args.detect_anomaly)
     training(lp.extract(args), op.extract(args), pp.extract(args), args.test_iterations, args.save_iterations, args.checkpoint_iterations, args.start_checkpoint)
-
+    
     # All done
     print("\nTraining complete.")

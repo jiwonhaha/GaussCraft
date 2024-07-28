@@ -99,7 +99,7 @@ class Viewer:
         
     def _init_models(self, iterations):
         # init gaussian model & renderer
-        mesh = trimesh.load(self.mesh)  # Use self.mesh here
+        mesh = trimesh.load(self.mesh) if self.mesh else None
         self.gaussian_model = GaussianModel(mesh, sh_degree=self.sh_degree)
         if not self.is_training:
             self.iteration = iterations
@@ -559,8 +559,8 @@ if __name__ == "__main__":
     else:
         args.background_color = tuple([float(i) for i in args.background_color])
 
+    mesh_path = os.path.abspath(args.mesh_path) if args.mesh_path else None
     if args.mesh_path:
-        mesh_path = os.path.abspath(args.mesh_path)
         print(f"Using mesh file at: {mesh_path}")
         args._mesh = mesh_path  # Store the mesh path for internal use if needed
 

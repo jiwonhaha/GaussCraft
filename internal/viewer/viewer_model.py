@@ -10,7 +10,8 @@ class GaussianModelforViewer(MeshGaussianModel):
         self._opacity_origin = None
         self.scaling_modifier = 1.
         self.depth_ratio = 0.
-        self.load_mesh(mesh)
+        if mesh is not None:
+            self.load_mesh(mesh)
 
     def select(self, mask: torch.tensor):
         if self._opacity_origin is None:

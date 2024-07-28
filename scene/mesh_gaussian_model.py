@@ -17,10 +17,9 @@ class MeshGaussianModel(GaussianModel):
         self.face_orien_mat = None
         self.face_orien_quat = None
 
-        self.load_mesh(mesh)
-
         # binding is initialized once the mesh topology is known
-        if self.binding is None:
+        if mesh is not None:
+            self.load_mesh(mesh)
             self.binding = torch.arange(len(self.faces)).cuda()
             self.binding_counter = torch.ones(len(self.faces), dtype=torch.int32).cuda()
 
@@ -32,7 +31,6 @@ class MeshGaussianModel(GaussianModel):
 
         # # Scale the vertices by 100
         # self.verts *= 10
-        
 
         self.update_mesh_properties()
 
@@ -57,48 +55,3 @@ class MeshGaussianModel(GaussianModel):
         # Ensure the vertices and faces tensors are on the same device
         faces = self.faces.cuda()
         verts = self.verts.cuda()
-
-        # # Compute the distance from each point to each face centroid
-        # point_expanded = self.get_xyz.unsqueeze(1)  # Shape: (num_points, 1, 3)
-        # centroid_expanded = self.face_center.unsqueeze(0)  # Shape: (1, num_faces, 3)
-
-        # # Calculate distances
-        # distances = torch.norm(point_expanded - centroid_expanded, dim=2)  # Shape: (num_points, num_faces)
-
-        # # Find the index of the closest face for each point
-        # closest_face_indices = torch.argmin(distances, dim=1)
-
-        # # Update binding
-        # self.binding = closest_face_indices
-
-    # def training_setup(self, training_args):
-    #     """
-    #     Sets up the training environment by enabling gradients for the necessary parameters
-    #     and adding them to the optimizer.
-        
-    #     Parameters:
-    #         training_args (object): An object containing training arguments such as learning rates.
-    #     """
-    #     super().training_setup(training_args)
-
-    #     # Enabling gradients for the mesh vertices
-    #     self.verts.requires_grad = True
-    #     param_verts = {'params': [self.verts], 'lr': 0.1, "name": "verts"}
-    #     self.optimizer.add_param_group(param_verts)
-
-        
-
-    # def capture(self):
-    #     """Capture the current state of the Gaussian model, including binding."""
-    #     state = super().capture()
-    #     state['verts'] = self.verts
-    #     state['faces'] = self.faces
-    #     state['binding'] = self.binding
-    #     return state
-
-    # def restore(self, state, opt):
-    #     """Restore the Gaussian model from the given state, including binding."""
-    #     super().restore(state, opt)
-    #     self.verts = state['verts']
-    #     self.faces = state['faces']
-    #     self.binding = state['binding']
