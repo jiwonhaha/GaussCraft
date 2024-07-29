@@ -1,3 +1,4 @@
+
 import open3d as o3d
 import numpy as np
 import argparse
@@ -43,11 +44,11 @@ def perform_arap_deformation(mesh_path, handle_vertex_index, displacement_factor
     # Perform ARAP deformation with verbosity level set to Debug
     with o3d.utility.VerbosityContextManager(o3d.utility.VerbosityLevel.Debug) as cm:
         mesh_prime = mesh.deform_as_rigid_as_possible(
-            constraint_ids, constraint_pos, max_iter=50
+            constraint_ids, constraint_pos, max_iter=5000, #energy=o3d.geometry.DeformAsRigidAsPossibleEnergy.Smoothed
         )
 
     # Save the deformed mesh to a file
-    output_path = "deformed_mesh.ply"
+    output_path = "deformed_5k_mesh.ply"
     o3d.io.write_triangle_mesh(output_path, mesh_prime)
     print(f"Deformed mesh saved to {output_path}")
 
