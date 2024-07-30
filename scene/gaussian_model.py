@@ -430,6 +430,11 @@ class GaussianModel:
         self.max_radii2D = torch.zeros((self.get_xyz.shape[0]), device="cuda")
 
     def densify_and_split(self, grads, grad_threshold, scene_extent, N=2):
+
+        if self.get_xyz.shape[0] > 100000 and self.binding is None:
+            print("Point count exceeds 100,000. Skipping densification.")
+            return
+
         n_init_points = self.get_xyz.shape[0]
         padded_grad = torch.zeros((n_init_points), device="cuda")
         padded_grad[:grads.shape[0]] = grads.squeeze()
@@ -463,6 +468,11 @@ class GaussianModel:
         self.prune_points(prune_filter)
 
     def densify_and_clone(self, grads, grad_threshold, scene_extent):
+
+        if self.get_xyz.shape[0] > 100000 and self.binding is None:
+            print("Point count exceeds 100,000. Skipping densification.")
+            return
+
         selected_pts_mask = torch.where(torch.norm(grads, dim=-1) >= grad_threshold, True, False)
         selected_pts_mask = torch.logical_and(selected_pts_mask,
                                               torch.max(self.get_scaling, dim=1).values <= self.percent_dense*scene_extent)

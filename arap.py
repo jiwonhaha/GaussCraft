@@ -1,4 +1,3 @@
-
 import open3d as o3d
 import numpy as np
 import argparse
@@ -48,7 +47,7 @@ def perform_arap_deformation(mesh_path, handle_vertex_index, displacement_factor
         )
 
     # Save the deformed mesh to a file
-    output_path = "deformed_5k_mesh.ply"
+    output_path = "deformed_doll_mesh.ply"
     o3d.io.write_triangle_mesh(output_path, mesh_prime)
     print(f"Deformed mesh saved to {output_path}")
 
@@ -58,11 +57,11 @@ def perform_arap_deformation(mesh_path, handle_vertex_index, displacement_factor
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Perform ARAP deformation on a mesh.")
     parser.add_argument("mesh_path", type=str, help="Path to the input mesh file.")
-    parser.add_argument("handle_vertex_index", type=int, nargs='?', default=2490, help="Index of the handle vertex to be moved (default: 2490).")
-    parser.add_argument("displacement_factor", type=float, nargs='?', default=0.1, help="Factor to scale the displacement based on the mesh size (default: 0.1).")
-    parser.add_argument("num_static_vertices", type=int, nargs='?', default=10, help="Number of static vertices (default: 10).")
-    parser.add_argument("reference_static_vertex_index", type=int, nargs='?', default=0, help="Index of the reference static vertex (default: 0).")
-    parser.add_argument("additional_static_ids", type=int, nargs='+', help="List of additional static vertex indices.")
+    parser.add_argument("handle_vertex_index", type=int, help="Index of the handle vertex to be moved.")
+    parser.add_argument("displacement_factor", type=float, help="Factor to scale the displacement based on the mesh size.")
+    parser.add_argument("num_static_vertices", type=int, help="Number of static vertices.")
+    parser.add_argument("reference_static_vertex_index", type=int, help="Index of the reference static vertex.")
+    parser.add_argument("additional_static_ids", type=int, nargs='*', help="List of additional static vertex indices (optional).")
     args = parser.parse_args()
 
     perform_arap_deformation(args.mesh_path, args.handle_vertex_index, args.displacement_factor, args.num_static_vertices, args.reference_static_vertex_index, args.additional_static_ids)
