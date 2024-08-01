@@ -22,6 +22,7 @@ class MeshGaussianModel(GaussianModel):
             self.load_mesh(mesh)
             self.binding = torch.arange(len(self.faces)).cuda()
             self.binding_counter = torch.ones(len(self.faces), dtype=torch.int32).cuda()
+            
 
 
     def load_mesh(self, mesh):

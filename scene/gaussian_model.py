@@ -184,9 +184,9 @@ class GaussianModel:
         rots = torch.zeros((fused_point_cloud.shape[0], 4), device="cuda")
         rots[:, 0] = 1
 
-        # opacities = inverse_sigmoid(0.1 * torch.ones((fused_point_cloud.shape[0], 1), dtype=torch.float, device="cuda"))
+        opacities = inverse_sigmoid(0.1 * torch.ones((fused_point_cloud.shape[0], 1), dtype=torch.float, device="cuda"))
         
-        opacities = self.inverse_opacity_activation(0.1 * torch.ones((fused_point_cloud.shape[0], 1), dtype=torch.float, device="cuda"))
+        # opacities = self.inverse_opacity_activation(0.1 * torch.ones((fused_point_cloud.shape[0], 1), dtype=torch.float, device="cuda"))
         
         self._xyz = nn.Parameter(fused_point_cloud.requires_grad_(True))
         self._features_dc = nn.Parameter(features[:,:,0:1].transpose(1, 2).contiguous().requires_grad_(True))
@@ -246,10 +246,13 @@ class GaussianModel:
         opacities = self._opacity.detach().cpu().numpy()
         scale = self._scaling.detach().cpu().numpy()
         rotation = self._rotation.detach().cpu().numpy()
+        
         if self.binding is not None:
             binding = self.binding.detach().cpu().numpy()
             binding_counter = self.binding_counter.detach().cpu().numpy()
 
+
+        
 
         dtype_full = [(attribute, 'f4') for attribute in self.construct_list_of_attributes()]
 
@@ -258,6 +261,11 @@ class GaussianModel:
         elements[:] = list(map(tuple, attributes))
         el = PlyElement.describe(elements, 'vertex')
         PlyData([el]).write(path)
+
+        if self.binding is not None:
+            # Save binding and binding_counter separately
+            np.save(os.path.join(os.path.dirname(path), "binding.npy"), binding)
+            np.save(os.path.join(os.path.dirname(path), "binding_counter.npy"), binding_counter)
 
 
 
@@ -431,9 +439,9 @@ class GaussianModel:
 
     def densify_and_split(self, grads, grad_threshold, scene_extent, N=2):
 
-        if self.get_xyz.shape[0] > 100000 and self.binding is None:
-            print("Point count exceeds 100,000. Skipping densification.")
-            return
+        # if self.get_xyz.shape[0] > 20000 and self.binding is None:
+        #     print("Point count exceeds 100,000. Skipping densification.")
+        #     return
 
         n_init_points = self.get_xyz.shape[0]
         padded_grad = torch.zeros((n_init_points), device="cuda")
@@ -469,9 +477,9 @@ class GaussianModel:
 
     def densify_and_clone(self, grads, grad_threshold, scene_extent):
 
-        if self.get_xyz.shape[0] > 100000 and self.binding is None:
-            print("Point count exceeds 100,000. Skipping densification.")
-            return
+        # if self.get_xyz.shape[0] > 20000 and self.binding is None:
+        #     print("Point count exceeds 100,000. Skipping densification.")
+        #     return
 
 
         selected_pts_mask = torch.where(torch.norm(grads, dim=-1) >= grad_threshold, True, False)
