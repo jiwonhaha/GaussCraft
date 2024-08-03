@@ -48,7 +48,7 @@ class Viewer:
             default_camera_look_at: List = None,
             no_edit_panel: bool = False,
             no_render_panel: bool = False,
-            iterations: int = 7000,
+            iterations: int = 30000,
             crop_box_size: float = 16.0,
             from_direct_path: str = None, 
             is_training: bool = False,
@@ -319,7 +319,7 @@ class Viewer:
                     min=128,
                     max=3840,
                     step=128,
-                    initial_value=1024 #1920,
+                    initial_value=1920 #1024,
                 )
                 self.max_res_when_static.on_update(self._handle_option_updated)
                 self.max_res_when_moving = server.add_gui_slider(
@@ -334,7 +334,7 @@ class Viewer:
                     min=0,
                     max=100,
                     step=1,
-                    initial_value=80 #100,
+                    initial_value=100 #80,
                 )
                 self.jpeg_quality_when_static.on_update(self._handle_option_updated)
 
@@ -343,7 +343,7 @@ class Viewer:
                     min=0,
                     max=100,
                     step=1,
-                    initial_value=2 #60,
+                    initial_value=60 #2,
                 )
 
             with server.add_gui_folder("Render Options"):
