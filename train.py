@@ -90,7 +90,6 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         # l1 + ssim loss
         loss = (1.0 - opt.lambda_dssim) * Ll1 + opt.lambda_dssim * (1.0 - ssim(image, gt_image))
         
-        is_image_good(image, gt_image, iteration)
 
         # Regularization
         lambda_normal = opt.lambda_normal if iteration > 7000 else 0.0
@@ -247,28 +246,6 @@ def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_i
 
         torch.cuda.empty_cache()
 
-def save_image(tensor, path):
-    """
-    Save a tensor as an image to the specified path.
-
-    Args:
-        tensor (torch.Tensor): The tensor to save.
-        path (str): The path to save the image.
-    """
-    array = tensor.permute(1, 2, 0).detach().cpu().numpy()  # Convert tensor to numpy array
-    array = (array * 255).astype(np.uint8)  # Convert to 8-bit per channel
-    image = Image.fromarray(array)
-    image.save(path)
-
-def is_image_good(rendered_image, ground_truth_image, iteration, save_dir="rendered_images"):
-    is_good = iteration % 1000 == 0
-
-    if is_good:
-        os.makedirs(save_dir, exist_ok=True)
-        save_image(rendered_image, os.path.join(save_dir, f"rendered_image_{iteration}.png"))
-        save_image(ground_truth_image, os.path.join(save_dir, f"ground_truth_image_{iteration}.png"))
-
-    return is_good
 
 if __name__ == "__main__":
     # Set up command line argument parser
@@ -279,8 +256,8 @@ if __name__ == "__main__":
     parser.add_argument('--ip', type=str, default="127.0.0.1")
     parser.add_argument('--port', type=int, default=6009)
     parser.add_argument('--detect_anomaly', action='store_true', default=False)
-    parser.add_argument("--test_iterations", nargs="+", type=int, default=[7_000, 30_000])
-    parser.add_argument("--save_iterations", nargs="+", type=int, default=[7_000, 30_000])
+    parser.add_argument("--test_iterations", nargs="+", type=int, default=[30_000, 60_000])
+    parser.add_argument("--save_iterations", nargs="+", type=int, default=[30_000, 60_000])
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument("--checkpoint_iterations", nargs="+", type=int, default=[])
     parser.add_argument("--start_checkpoint", type=str, default=None)
