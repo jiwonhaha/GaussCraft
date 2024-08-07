@@ -132,6 +132,9 @@ def compute_face_orientation(verts, faces, return_scale=False):
         s0 = length(v1 - v0)
         s1 = dot(a2, (v2 - v0)).abs()
         scale = (s0 + s1) / 2
+    else:
+        scale = None
+        
     return orientation, scale
 
 def compute_vertex_normals(verts, faces):

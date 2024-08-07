@@ -439,9 +439,6 @@ class GaussianModel:
 
     def densify_and_split(self, grads, grad_threshold, scene_extent, N=2):
 
-        # if self.get_xyz.shape[0] > 20000 and self.binding is None:
-        #     print("Point count exceeds 100,000. Skipping densification.")
-        #     return
 
         n_init_points = self.get_xyz.shape[0]
         padded_grad = torch.zeros((n_init_points), device="cuda")
@@ -449,6 +446,23 @@ class GaussianModel:
         selected_pts_mask = torch.where(padded_grad >= grad_threshold, True, False)
         selected_pts_mask = torch.logical_and(selected_pts_mask,
                                               torch.max(self.get_scaling, dim=1).values > self.percent_dense*scene_extent)
+
+        # densify deformed part
+        if self.binding is not None and self.orien_diff is not None:
+            high_orien_diff_mask = self.orien_diff > 0.9
+            high_orien_diff_indices = torch.where(high_orien_diff_mask)[0]
+            relevant_bindings = self.binding[high_orien_diff_indices]
+            
+            # Count occurrences of each binding
+            unique_bindings, counts = torch.unique(self.binding, return_counts=True)
+            high_count_bindings = unique_bindings[counts > 10]
+            
+            # Exclude bindings with more than 10 Gaussians
+            valid_binding_mask = torch.isin(relevant_bindings, high_count_bindings, invert=True)
+            relevant_bindings = relevant_bindings[valid_binding_mask]
+            
+            same_binding_mask = torch.isin(self.binding, relevant_bindings)
+            selected_pts_mask = torch.logical_or(selected_pts_mask, same_binding_mask)
 
         stds = self.get_scaling[selected_pts_mask].repeat(N,1)
         stds = torch.cat([stds, 0 * torch.ones_like(stds[:,:1])], dim=-1)
@@ -476,11 +490,6 @@ class GaussianModel:
         self.prune_points(prune_filter)
 
     def densify_and_clone(self, grads, grad_threshold, scene_extent):
-
-        # if self.get_xyz.shape[0] > 20000 and self.binding is None:
-        #     print("Point count exceeds 100,000. Skipping densification.")
-        #     return
-
 
         selected_pts_mask = torch.where(torch.norm(grads, dim=-1) >= grad_threshold, True, False)
         selected_pts_mask = torch.logical_and(selected_pts_mask,

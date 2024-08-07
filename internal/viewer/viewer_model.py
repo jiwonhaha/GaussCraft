@@ -6,12 +6,12 @@ from scene import GaussianModel, MeshGaussianModel
 
 class GaussianModelforViewer(MeshGaussianModel):
     def __init__(self, mesh, sh_degree : int):
-        super().__init__(mesh,sh_degree)
+        super().__init__(mesh,None,sh_degree)
         self._opacity_origin = None
         self.scaling_modifier = 1.
         self.depth_ratio = 0.
-        if mesh is not None:
-            self.load_mesh(mesh)
+        # if mesh is not None:
+        #     self.load_mesh(mesh, None)
 
     def select(self, mask: torch.tensor):
         if self._opacity_origin is None:

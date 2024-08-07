@@ -37,8 +37,9 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
     first_iter = 0
     tb_writer = prepare_output_and_logger(dataset)
 
-    # Initialise mesh
-    mesh = None  # Default to None
+    # Initialise meshes
+    mesh = None 
+    deformed_mesh = None
 
     if dataset.mesh_path:
         print(f"Loading mesh from {dataset.mesh_path}")
@@ -46,8 +47,15 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
     else:
         print("No mesh path provided, proceeding without mesh.")
 
-    gaussians = MeshGaussianModel(mesh, dataset.sh_degree)
-    scene = Scene(dataset, gaussians, mesh)
+    if dataset.deformed_mesh_path:
+        print(f"Loading deformed mesh from {dataset.deformed_mesh_path}")
+        deformed_mesh = trimesh.load(dataset.deformed_mesh_path)
+    else:
+        print("No deformed mesh path provided, proceeding without deformed mesh.")
+
+
+    gaussians = MeshGaussianModel(mesh, deformed_mesh, dataset.sh_degree)
+    scene = Scene(dataset, gaussians)
     gaussians.training_setup(opt)
 
     if checkpoint:
@@ -247,6 +255,7 @@ def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_i
         torch.cuda.empty_cache()
 
 
+
 if __name__ == "__main__":
     # Set up command line argument parser
     parser = ArgumentParser(description="Training script parameters")
@@ -256,12 +265,13 @@ if __name__ == "__main__":
     parser.add_argument('--ip', type=str, default="127.0.0.1")
     parser.add_argument('--port', type=int, default=6009)
     parser.add_argument('--detect_anomaly', action='store_true', default=False)
-    parser.add_argument("--test_iterations", nargs="+", type=int, default=[30_000, 60_000])
-    parser.add_argument("--save_iterations", nargs="+", type=int, default=[30_000, 60_000])
+    parser.add_argument("--test_iterations", nargs="+", type=int, default=[7_000, 30_000])
+    parser.add_argument("--save_iterations", nargs="+", type=int, default=[7_000, 30_000])
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument("--checkpoint_iterations", nargs="+", type=int, default=[])
     parser.add_argument("--start_checkpoint", type=str, default=None)
-    parser.add_argument('--mesh', type=str, help='Path to the mesh file')  # No shorthand
+    parser.add_argument('--mesh', type=str, help='Path to the original mesh file')  # No shorthand
+    parser.add_argument('--deformed_mesh', type=str, help='Path to the deformed mesh file')  # No shorthand
 
     args = parser.parse_args(sys.argv[1:])
     args.save_iterations.append(args.iterations)
@@ -271,11 +281,16 @@ if __name__ == "__main__":
     # Initialize system state (RNG)
     safe_state(args.quiet)
 
-    # Load mesh file if provided
+    # Load mesh files if provided
     if args.mesh:
         mesh_path = os.path.abspath(args.mesh)
-        print(f"Using mesh file at: {mesh_path}")
+        print(f"Using original mesh file at: {mesh_path}")
         args.mesh_path = mesh_path  # Ensure mesh is included in args
+
+    if args.deformed_mesh:
+        deformed_mesh_path = os.path.abspath(args.deformed_mesh)
+        print(f"Using deformed mesh file at: {deformed_mesh_path}")
+        args.deformed_mesh_path = deformed_mesh_path  # Ensure deformed mesh is included in args
 
     # Start GUI server, configure and run training
     torch.autograd.set_detect_anomaly(args.detect_anomaly)
