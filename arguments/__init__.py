@@ -95,7 +95,7 @@ class OptimizationParams(ParamGroup):
         self.densify_grad_threshold = 0.0002
         
         #mesh_gaussian
-        self.lambda_xyz = 1e-2
+        self.lambda_xyz = 0.05 # 1e-2
         self.threshold_xyz = 1.
         self.lambda_scale = 1.
         self.threshold_scale = 0.6

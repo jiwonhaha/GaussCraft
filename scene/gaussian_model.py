@@ -455,7 +455,7 @@ class GaussianModel:
             
             # Count occurrences of each binding
             unique_bindings, counts = torch.unique(self.binding, return_counts=True)
-            high_count_bindings = unique_bindings[counts > 10]
+            high_count_bindings = unique_bindings[counts > 5]
             
             # Exclude bindings with more than 10 Gaussians
             valid_binding_mask = torch.isin(relevant_bindings, high_count_bindings, invert=True)
