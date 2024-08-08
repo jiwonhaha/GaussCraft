@@ -449,13 +449,13 @@ class GaussianModel:
 
         # densify deformed part
         if self.binding is not None and self.orien_diff is not None:
-            high_orien_diff_mask = self.orien_diff > 0.95
+            high_orien_diff_mask = self.orien_diff > 0.97
             high_orien_diff_indices = torch.where(high_orien_diff_mask)[0]
             relevant_bindings = self.binding[high_orien_diff_indices]
             
             # Count occurrences of each binding
             unique_bindings, counts = torch.unique(self.binding, return_counts=True)
-            high_count_bindings = unique_bindings[counts > 5]
+            high_count_bindings = unique_bindings[counts > 10]
             
             # Exclude bindings with more than 10 Gaussians
             valid_binding_mask = torch.isin(relevant_bindings, high_count_bindings, invert=True)
