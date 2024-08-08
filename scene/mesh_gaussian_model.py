@@ -81,5 +81,11 @@ class MeshGaussianModel(GaussianModel):
 
         self.orien_diff = torch.norm(original_quat - deformed_quat, dim=1)
 
+        # Normalize orientation differences to range [0, 1]
+        min_val = torch.min(self.orien_diff)
+        max_val = torch.max(self.orien_diff)
+        self.orien_diff = (self.orien_diff - min_val) / (max_val - min_val)
+
+
         
         
