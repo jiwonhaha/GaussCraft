@@ -18,7 +18,8 @@ class MeshGaussianModel(GaussianModel):
         self.face_orien_quat = None
 
         #check amount of shape change for deformation
-        self.orien_diff = None
+        self.mesh_diff = None
+        self.diff_threshold = None
 
         # binding is initialized once the mesh topology is known
         if mesh is not None:
@@ -62,30 +63,28 @@ class MeshGaussianModel(GaussianModel):
 
     def cal_mesh_diff(self, mesh, deformed_mesh):
         """Calculate and compare the intensity of the shape difference between the original mesh and the deformed mesh."""
-        # Original mesh vertices and faces
+        # Load vertices and faces from both original and deformed meshes
         original_verts = torch.tensor(mesh.vertices, dtype=torch.float32).cuda()
-        original_faces = torch.tensor(mesh.faces, dtype=torch.int32).cuda()
-
-        # Deformed mesh vertices
         deformed_verts = torch.tensor(deformed_mesh.vertices, dtype=torch.float32).cuda()
 
-        # Calculate vertex position differences
-        vert_diff = torch.norm(original_verts - deformed_verts, dim=1)
-
-        # Calculate face orientation differences
-        original_orien_mat, _ = compute_face_orientation(original_verts, original_faces)
-        deformed_orien_mat, _ = compute_face_orientation(deformed_verts, original_faces)
+        # Compute face orientation and scale differences
+        original_orien_mat, original_scale = compute_face_orientation(original_verts, torch.tensor(mesh.faces, dtype=torch.int32).cuda(), return_scale=True)
+        deformed_orien_mat, deformed_scale = compute_face_orientation(deformed_verts, torch.tensor(mesh.faces, dtype=torch.int32).cuda(), return_scale=True)
         
-        original_quat = quat_xyzw_to_wxyz(rotmat_to_unitquat(original_orien_mat))
-        deformed_quat = quat_xyzw_to_wxyz(rotmat_to_unitquat(deformed_orien_mat))
-
-        self.orien_diff = torch.norm(original_quat - deformed_quat, dim=1)
-
-        # Normalize orientation differences to range [0, 1]
-        min_val = torch.min(self.orien_diff)
-        max_val = torch.max(self.orien_diff)
-        self.orien_diff = (self.orien_diff - min_val) / (max_val - min_val)
-
-
+        orien_diff = torch.norm(
+            quat_xyzw_to_wxyz(rotmat_to_unitquat(original_orien_mat)) - 
+            quat_xyzw_to_wxyz(rotmat_to_unitquat(deformed_orien_mat)), dim=1
+        )
         
+        scale_diff = torch.abs(original_scale - deformed_scale).squeeze()
+
+        # Normalize each difference to [0, 1]
+        orien_diff = (orien_diff - orien_diff.min()) / (orien_diff.max() - orien_diff.min())
+        scale_diff = (scale_diff - scale_diff.min()) / (scale_diff.max() - scale_diff.min())
         
+        # Combine the normalized differences
+        combined_diff = orien_diff + scale_diff
+
+        # Normalize the combined differences to [0, 1]
+        self.mesh_diff = (combined_diff - combined_diff.min()) / (combined_diff.max() - combined_diff.min())
+        self.diff_threshold = torch.quantile(self.mesh_diff, 0.9)

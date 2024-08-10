@@ -448,22 +448,25 @@ class GaussianModel:
                                               torch.max(self.get_scaling, dim=1).values > self.percent_dense*scene_extent)
 
         # densify deformed part
-        if self.binding is not None and self.orien_diff is not None:
-            high_orien_diff_mask = self.orien_diff > 0.97
-            high_orien_diff_indices = torch.where(high_orien_diff_mask)[0]
-            relevant_bindings = self.binding[high_orien_diff_indices]
-            
-            # Count occurrences of each binding
-            unique_bindings, counts = torch.unique(self.binding, return_counts=True)
-            high_count_bindings = unique_bindings[counts > 5]
-            
-            # Exclude bindings with more than 10 Gaussians
-            valid_binding_mask = torch.isin(relevant_bindings, high_count_bindings, invert=True)
-            relevant_bindings = relevant_bindings[valid_binding_mask]
-            
-            same_binding_mask = torch.isin(self.binding, relevant_bindings)
-            selected_pts_mask = torch.logical_or(selected_pts_mask, same_binding_mask)
+        if self.binding is not None and self.mesh_diff is not None:
 
+            high_mesh_diff_mask = self.mesh_diff > self.diff_threshold
+            # Indices of faces of mesh
+            high_mesh_diff_indices = torch.where(high_mesh_diff_mask)[0]
+
+            # Filter out indices in high_mesh_diff_indices that occur more than 5 times in self.binding
+            binding_counts = torch.bincount(self.binding.view(-1))
+            filtered_high_mesh_diff_indices = high_mesh_diff_indices[
+                torch.where(binding_counts[high_mesh_diff_indices] < 10)[0]
+            ]
+
+            # Get indices in self.binding that match any of the filtered indices
+            gaussian_indices = torch.where(torch.isin(self.binding, filtered_high_mesh_diff_indices))[0]
+
+            # Add them to selected_pts_mask, ensuring no duplicates
+            selected_pts_mask[gaussian_indices] = True
+
+            
         stds = self.get_scaling[selected_pts_mask].repeat(N,1)
         stds = torch.cat([stds, 0 * torch.ones_like(stds[:,:1])], dim=-1)
         means = torch.zeros_like(stds)

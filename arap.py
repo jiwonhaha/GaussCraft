@@ -13,8 +13,8 @@ def perform_arap_deformation(mesh_path, handle_vertex_index, num_static_vertices
     # Convert mesh vertices to a NumPy array
     vertices = np.asarray(mesh.vertices)
 
-    # Define the displacement vector as (0, -1, 2)
-    displacement_vector = np.array([0, 0.5, 1])
+    # Define the displacement vector as 
+    displacement_vector = np.array([-0.5, -0.1, 0])
 
     # Define the handle vertex and its new position
     handle_position = vertices[handle_vertex_index]
