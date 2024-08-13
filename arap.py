@@ -14,7 +14,7 @@ def perform_arap_deformation(mesh_path, handle_vertex_index, num_static_vertices
     vertices = np.asarray(mesh.vertices)
 
     # Define the displacement vector as 
-    displacement_vector = np.array([-0.5, -0.1, 0])
+    displacement_vector = np.array([0, 0, 0.5])
 
     # Define the handle vertex and its new position
     handle_position = vertices[handle_vertex_index]
