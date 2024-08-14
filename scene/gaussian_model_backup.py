@@ -59,8 +59,6 @@ class GaussianModel:
         self.spatial_lr_scale = 0
         self.setup_functions()
 
-        self._z_fixed = torch.empty(0)
-
     def capture(self):
         return (
             self.active_sh_degree,
@@ -108,10 +106,13 @@ class GaussianModel:
         self.denom = denom
         self.optimizer.load_state_dict(opt_dict)
 
+    # @property
+    # def get_xyz(self):
+    #     return self._xyz
+
 
     @property
     def get_scaling(self):
-        #shape of scaling: Nx2
         if self.binding is None:
             return self.scaling_activation(self._scaling) #.clamp(max=1)
         else:
@@ -120,49 +121,21 @@ class GaussianModel:
     
     @property
     def get_rotation(self):
-        #shape of rotation: Nx4 (3D) ?? (2D)
         if self.binding is None:
             return self.rotation_activation(self._rotation)
         else:
-            # # always need to normalize the rotation quaternions before chaining them
-            # rot = self.rotation_activation(self._rotation)
-            # face_orien_quat = self.rotation_activation(self.face_orien_quat[self.binding])
-            # return quat_xyzw_to_wxyz(quat_product(quat_wxyz_to_xyzw(face_orien_quat), quat_wxyz_to_xyzw(rot)))  # roma
+            # always need to normalize the rotation quaternions before chaining them
             rot = self.rotation_activation(self._rotation)
             face_orien_quat = self.rotation_activation(self.face_orien_quat[self.binding])
-
-            # Remove z-axis rotation from rot quaternion
-            rot_no_z = self.remove_z_rotation_from_quaternion(rot)
-
-            # Combine with face_orien_quat and return the final quaternion
-            final_quat = quat_product(quat_wxyz_to_xyzw(face_orien_quat), quat_wxyz_to_xyzw(rot_no_z))
-
-            # Return the final quaternion in the desired format
-            return quat_xyzw_to_wxyz(final_quat)
-           
+            return quat_xyzw_to_wxyz(quat_product(quat_wxyz_to_xyzw(face_orien_quat), quat_wxyz_to_xyzw(rot)))  # roma
+    
     @property
     def get_xyz(self):
-        #shape of scaling: Nx3 (3D) Nx2 (2D)
         if self.binding is None:
             return self._xyz
         else:
-            #modified!!!! 
-            z_fixed = self._z_fixed.to(self._xyz.device)
-            xyz = torch.cat([self._xyz, z_fixed], dim=-1)
-            xyz = torch.bmm(self.face_orien_mat[self.binding], xyz[..., None]).squeeze(-1)
+            xyz = torch.bmm(self.face_orien_mat[self.binding], self._xyz[..., None]).squeeze(-1)
             return xyz * self.face_scaling[self.binding] + self.face_center[self.binding]
-    
-            # # Step 1: Convert 2D local coordinates to 3D by adding a zero in the z-axis
-            # xyz_2d = torch.cat((self._xyz, torch.zeros(self._xyz.shape[0], 1, device=self._xyz.device)), dim=-1)  # Shape Nx3
-
-            # # Step 2: Apply rotation matrix (face_orien_mat) and scaling (face_scaling)
-            # # Here, we use torch.bmm for batched matrix multiplication.
-            # xyz_rotated = torch.bmm(self.face_orien_mat[self.binding], xyz_2d[..., None]).squeeze(-1)  # Shape Nx3
-            
-            # # Step 3: Apply scaling and then add the translation (face_center)
-            # xyz_global = xyz_rotated * self.face_scaling[self.binding] + self.face_center[self.binding]  # Shape Nx3
-
-            # return xyz_global
     
 
     @property
@@ -191,10 +164,7 @@ class GaussianModel:
 
         else:
             num_pts = self.binding.shape[0]
-
-            #modified!!!! 
             fused_point_cloud = torch.zeros((num_pts, 3)).float().cuda()
-            # fused_point_cloud = torch.zeros((num_pts, 2)).float().cuda()
             fused_color = torch.tensor(np.random.random((num_pts, 3)) / 255.0).float().cuda()
 
         features = torch.zeros((fused_color.shape[0], 3, (self.max_sh_degree + 1) ** 2)).float().cuda()
@@ -209,11 +179,8 @@ class GaussianModel:
         if self.binding is None:
             dist2 = torch.clamp_min(distCUDA2(torch.from_numpy(np.asarray(pcd.points)).float().cuda()), 0.0000001)
             scales = torch.log(torch.sqrt(dist2))[...,None].repeat(1, 2)
-            
         else:
             scales = torch.log(torch.ones((self.get_xyz.shape[0], 2), device="cuda"))
-        
-        # Quaternion for 3D rotation (identity quaternion)
         rots = torch.zeros((fused_point_cloud.shape[0], 4), device="cuda")
         rots[:, 0] = 1
 
@@ -228,18 +195,6 @@ class GaussianModel:
         self._rotation = nn.Parameter(rots.requires_grad_(True))
         self._opacity = nn.Parameter(opacities.requires_grad_(True))
         self.max_radii2D = torch.zeros((self.get_xyz.shape[0]), device="cuda")
-
-        if self.binding is not None:
-            self._xyz = nn.Parameter(fused_point_cloud.requires_grad_(True))
-            self._xyz.data[..., 2] = 0  # Force z-axis to be 0
-            self._xyz = nn.Parameter(self._xyz, requires_grad=True)
-
-            # Make only the x and y components trainable by wrapping them in a new Parameter
-            self._xyz = nn.Parameter(self._xyz[..., :2].requires_grad_(True), requires_grad=True)
-
-            # Store z as a fixed tensor, non-trainable
-            self._z_fixed = torch.zeros((self._xyz.shape[0], 1), device=self._xyz.device, dtype=self._xyz.dtype)
-
 
     def training_setup(self, training_args):
         self.percent_dense = training_args.percent_dense
@@ -284,8 +239,7 @@ class GaussianModel:
     def save_ply(self, path):
         mkdir_p(os.path.dirname(path))
 
-        # xyz = self._xyz.detach().cpu().numpy()
-        xyz = torch.cat([self._xyz, self._z_fixed], dim=-1).detach().cpu().numpy()
+        xyz = self._xyz.detach().cpu().numpy()
         normals = np.zeros_like(xyz)
         f_dc = self._features_dc.detach().transpose(1, 2).flatten(start_dim=1).contiguous().cpu().numpy()
         f_rest = self._features_rest.detach().transpose(1, 2).flatten(start_dim=1).contiguous().cpu().numpy()
@@ -296,6 +250,8 @@ class GaussianModel:
         if self.binding is not None:
             binding = self.binding.detach().cpu().numpy()
             binding_counter = self.binding_counter.detach().cpu().numpy()
+
+
         
 
         dtype_full = [(attribute, 'f4') for attribute in self.construct_list_of_attributes()]
@@ -324,10 +280,6 @@ class GaussianModel:
         xyz = np.stack((np.asarray(plydata.elements[0]["x"]),
                         np.asarray(plydata.elements[0]["y"]),
                         np.asarray(plydata.elements[0]["z"])),  axis=1)
-
-        # Remove the z component (the third column)
-        self._xyz = nn.Parameter(torch.tensor(xyz[:, :2], dtype=torch.float, device="cuda").requires_grad_(True))
-    
         opacities = np.asarray(plydata.elements[0]["opacity"])[..., np.newaxis]
 
         features_dc = np.zeros((xyz.shape[0], 3, 1))
@@ -438,10 +390,6 @@ class GaussianModel:
         self.denom = self.denom[valid_points_mask]
         self.max_radii2D = self.max_radii2D[valid_points_mask]
 
-        # Update z_fixed to match the new size of _xyz after pruning
-        self._z_fixed = torch.zeros((self._xyz.shape[0], 1), device=self._xyz.device, dtype=self._xyz.dtype)
-
-
         if self.binding is not None:
             self.binding_counter.scatter_add_(0, self.binding[mask], -torch.ones_like(self.binding[mask], dtype=torch.int32, device="cuda"))
             self.binding = self.binding[valid_points_mask]
@@ -469,17 +417,12 @@ class GaussianModel:
         return optimizable_tensors
 
     def densification_postfix(self, new_xyz, new_features_dc, new_features_rest, new_opacities, new_scaling, new_rotation):
-        # Force z-component to be 0
-        new_z_fixed = torch.zeros((new_xyz.shape[0], 1), device=new_xyz.device, dtype=new_xyz.dtype)
-        
-        # Now proceed as before
-        d = {
-            "xyz": new_xyz[..., :2],  # Only x and y are trainable
-            "f_dc": new_features_dc,
-            "f_rest": new_features_rest,
-            "opacity": new_opacities,
-            "scaling": new_scaling,
-            "rotation": new_rotation,
+        d = {"xyz": new_xyz,
+        "f_dc": new_features_dc,
+        "f_rest": new_features_rest,
+        "opacity": new_opacities,
+        "scaling" : new_scaling,
+        "rotation" : new_rotation,
         }
 
         optimizable_tensors = self.cat_tensors_to_optimizer(d)
@@ -490,14 +433,9 @@ class GaussianModel:
         self._scaling = optimizable_tensors["scaling"]
         self._rotation = optimizable_tensors["rotation"]
 
-        # Update z_fixed to match the new size of _xyz
-        self._z_fixed = torch.zeros((self._xyz.shape[0], 1), device=self._xyz.device, dtype=self._xyz.dtype)
-
         self.xyz_gradient_accum = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")
         self.denom = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")
         self.max_radii2D = torch.zeros((self.get_xyz.shape[0]), device="cuda")
-
-
 
     def densify_and_split(self, grads, grad_threshold, scene_extent, N=2):
 

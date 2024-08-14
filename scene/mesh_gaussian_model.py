@@ -88,3 +88,30 @@ class MeshGaussianModel(GaussianModel):
         # Normalize the combined differences to [0, 1]
         self.mesh_diff = (combined_diff - combined_diff.min()) / (combined_diff.max() - combined_diff.min())
         self.diff_threshold = torch.quantile(self.mesh_diff, 0.9)
+
+    def remove_z_rotation_from_quaternion(self, q):
+        # Assuming the quaternion q is in the format [w, x, y, z] with shape (N, 4)
+        w, x, y, z = q[:, 0], q[:, 1], q[:, 2], q[:, 3]
+
+        # Step 1: Calculate the angle of rotation around the z-axis (theta_z)
+        theta_z = torch.atan2(z, torch.sqrt(w**2 + x**2 + y**2))
+
+        # Step 2: Calculate the new components after removing the z-axis rotation
+        cos_theta_z = torch.cos(theta_z)
+        sin_theta_z = torch.sin(theta_z)
+
+        # Calculate the new quaternion components
+        w_new = w * cos_theta_z + z * sin_theta_z
+        x_new = x * cos_theta_z + y * sin_theta_z
+        y_new = y * cos_theta_z - x * sin_theta_z
+        z_new = torch.zeros_like(z)  # Remove the z-axis component
+
+        # Normalize the quaternion to ensure it's valid
+        norm = torch.sqrt(w_new**2 + x_new**2 + y_new**2 + z_new**2).unsqueeze(1)
+
+        # Stack the components back together
+        new_q = torch.stack([w_new, x_new, y_new, z_new], dim=-1)
+
+        # Normalize
+        return new_q / norm
+
