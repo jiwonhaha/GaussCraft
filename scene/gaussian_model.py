@@ -21,6 +21,9 @@ from simple_knn._C import distCUDA2
 from utils.graphics_utils import BasicPointCloud
 from utils.general_utils import strip_symmetric, build_scaling_rotation
 
+import matplotlib.pyplot as plt
+
+
 from roma import quat_product, quat_xyzw_to_wxyz, quat_wxyz_to_xyzw
 class GaussianModel:
 
@@ -399,8 +402,6 @@ class GaussianModel:
             counter_prune.scatter_add_(0, binding_to_prune, torch.ones_like(binding_to_prune, dtype=torch.int32, device="cuda"))
             mask_redundant = (self.binding_counter - counter_prune) > 0
             mask[mask.clone()] = mask_redundant[binding_to_prune]
-
-
         valid_points_mask = ~mask
         optimizable_tensors = self._prune_optimizer(valid_points_mask)
 
@@ -416,9 +417,6 @@ class GaussianModel:
         self.denom = self.denom[valid_points_mask]
         self.max_radii2D = self.max_radii2D[valid_points_mask]
 
-        # Update z_fixed to match the new size of _xyz after pruning
-        self._z_fixed = torch.zeros((self._xyz.shape[0], 1), device=self._xyz.device, dtype=self._xyz.dtype)
-        
 
         if self.binding is not None:
             self.binding_counter.scatter_add_(0, self.binding[mask], -torch.ones_like(self.binding[mask], dtype=torch.int32, device="cuda"))
@@ -447,9 +445,7 @@ class GaussianModel:
         return optimizable_tensors
 
     def densification_postfix(self, new_xyz, new_features_dc, new_features_rest, new_opacities, new_scaling, new_rotation):
-        # Force z-component to be 0
-        new_z_fixed = torch.zeros((new_xyz.shape[0], 1), device=new_xyz.device, dtype=new_xyz.dtype)
-
+        
         # Now proceed as before
         d = {
             "xyz": new_xyz[..., :2],  # Only x and y are trainable
@@ -537,6 +533,21 @@ class GaussianModel:
         
         prune_filter = torch.cat((selected_pts_mask, torch.zeros(N * selected_pts_mask.sum(), device="cuda", dtype=bool)))
         self.prune_points(prune_filter)
+        if self.binding is not None:
+            self.prune_faces_by_distance()
+    
+    def prune_faces_by_distance(self):
+        """
+        Prune mesh faces based on distance from the origin (0, 0, 0).
+        """
+        # Create a mask where distances greater than the threshold are set to True
+
+        distances = torch.norm(self._xyz, dim=-1)
+        prune_mask = distances > 13
+        
+        # Prune the points based on the mask
+        self.prune_points(prune_mask)
+
 
     def densify_and_clone(self, grads, grad_threshold, scene_extent):
 
