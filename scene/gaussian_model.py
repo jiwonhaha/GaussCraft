@@ -550,7 +550,7 @@ class GaussianModel:
         # Create a mask where distances greater than the threshold are set to True
 
         distances = torch.norm(self._xyz, dim=-1)
-        prune_mask = distances > 13
+        prune_mask = distances > 8
         
         # Prune the points based on the mask
         self.prune_points(prune_mask)

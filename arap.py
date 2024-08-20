@@ -14,7 +14,7 @@ def perform_arap_deformation(mesh_path, handle_vertex_index, num_static_vertices
     vertices = np.asarray(mesh.vertices)
 
     # Define the displacement vector as 
-    displacement_vector = np.array([0, 0, 0.5])
+    displacement_vector = np.array([0, 0.2, 0])
 
     # Define the handle vertex and its new position
     handle_position = vertices[handle_vertex_index]
@@ -39,7 +39,7 @@ def perform_arap_deformation(mesh_path, handle_vertex_index, num_static_vertices
     # Perform ARAP deformation with verbosity level set to Debug
     with o3d.utility.VerbosityContextManager(o3d.utility.VerbosityLevel.Debug) as cm:
         mesh_prime = mesh.deform_as_rigid_as_possible(
-            constraint_ids, constraint_pos, max_iter=3000
+            constraint_ids, constraint_pos, max_iter=2000
         )
 
     # Save the deformed mesh to a file
