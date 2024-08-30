@@ -36,7 +36,7 @@ class Viewer:
             source_path: str = '',
             host: str = "0.0.0.0",
             port: int = 8080,
-            background_color: Tuple = (0.5, 0.5, 0.5),
+            background_color: Tuple = (1, 1, 1),
             image_format: Literal["jpeg", "png"] = "jpeg",
             reorient: Literal["auto", "enable", "disable"] = "auto",
             sh_degree: int = 3,

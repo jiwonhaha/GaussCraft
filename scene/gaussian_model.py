@@ -550,7 +550,13 @@ class GaussianModel:
         # Create a mask where distances greater than the threshold are set to True
 
         distances = torch.norm(self._xyz, dim=-1)
-        prune_mask = distances > 8
+        threshold = 5
+        # Calculate the average distance or bounding box diagonal as a scaling factor
+        max_distance = distances.max()
+        min_distance = distances.min()
+        scale_factor = (max_distance - min_distance) / threshold
+        effective_threshold = threshold * scale_factor
+        prune_mask = distances > effective_threshold
         
         # Prune the points based on the mask
         self.prune_points(prune_mask)
