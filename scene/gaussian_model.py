@@ -540,8 +540,8 @@ class GaussianModel:
         
         prune_filter = torch.cat((selected_pts_mask, torch.zeros(N * selected_pts_mask.sum(), device="cuda", dtype=bool)))
         self.prune_points(prune_filter)
-        if self.binding is not None:
-            self.prune_faces_by_distance()
+        # if self.binding is not None:
+        #     self.prune_faces_by_distance()
     
     def prune_faces_by_distance(self):
         """

@@ -1,14 +1,3 @@
-#
-# Copyright (C) 2023, Inria
-# GRAPHDECO research group, https://team.inria.fr/graphdeco
-# All rights reserved.
-#
-# This software is free for non-commercial, research and evaluation use 
-# under the terms of the LICENSE.md file.
-#
-# For inquiries contact  george.drettakis@inria.fr
-#
-
 import torch
 from scene import Scene
 import os
@@ -19,11 +8,11 @@ import torchvision
 from utils.general_utils import safe_state
 from argparse import ArgumentParser
 from arguments import ModelParams, PipelineParams, get_combined_args
-from gaussian_renderer import GaussianModel
+from gaussian_renderer import MeshGaussianModel
 from utils.mesh_utils import GaussianExtractor, to_cam_open3d, post_process_mesh
 from utils.render_utils import generate_path, create_videos
-
 import open3d as o3d
+import trimesh  # Import for loading mesh files
 
 if __name__ == "__main__":
     # Set up command line argument parser
@@ -42,19 +31,46 @@ if __name__ == "__main__":
     parser.add_argument("--num_cluster", default=50, type=int, help='Mesh: number of connected clusters to export')
     parser.add_argument("--unbounded", action="store_true", help='Mesh: using unbounded mode for meshing')
     parser.add_argument("--mesh_res", default=1024, type=int, help='Mesh: resolution for unbounded mesh extraction')
+
     args = get_combined_args(parser)
     print("Rendering " + args.model_path)
 
+    # Initialise meshes
+    mesh = None 
+    deformed_mesh = None
 
+    # Load the meshes if paths are provided
+    if args.mesh_path:
+        print(f"Loading mesh from {args.mesh_path}")
+        mesh = trimesh.load(args.mesh_path)
+    else:
+        print("No mesh path provided, proceeding without mesh.")
+
+    if args.deformed_mesh_path:
+        print(f"Loading deformed mesh from {args.deformed_mesh_path}")
+        deformed_mesh = trimesh.load(args.deformed_mesh_path)
+    else:
+        print("No deformed mesh path provided, proceeding without deformed mesh.")
+
+    # Extract dataset, iteration, and pipeline information
     dataset, iteration, pipe = model.extract(args), args.iteration, pipeline.extract(args)
-    gaussians = GaussianModel(dataset.sh_degree)
+
+    # Initialize the Gaussian model with mesh and deformed mesh if available
+    gaussians = MeshGaussianModel(mesh, deformed_mesh, dataset.sh_degree)
+    
+    # Initialize the scene
     scene = Scene(dataset, gaussians, load_iteration=iteration, shuffle=False)
+    
+    # Set up background color
     bg_color = [1,1,1] if dataset.white_background else [0, 0, 0]
     background = torch.tensor(bg_color, dtype=torch.float32, device="cuda")
     
+    # Set up output directories
     train_dir = os.path.join(args.model_path, 'train', "ours_{}".format(scene.loaded_iter))
     test_dir = os.path.join(args.model_path, 'test', "ours_{}".format(scene.loaded_iter))
-    gaussExtractor = GaussianExtractor(gaussians, render, pipe, bg_color=bg_color)    
+    
+    # Initialize the GaussianExtractor
+    gaussExtractor = GaussianExtractor(gaussians, render, pipe, bg_color=bg_color)
     
     if not args.skip_train:
         print("export training images ...")
@@ -62,13 +78,11 @@ if __name__ == "__main__":
         gaussExtractor.reconstruction(scene.getTrainCameras())
         gaussExtractor.export_image(train_dir)
         
-    
     if (not args.skip_test) and (len(scene.getTestCameras()) > 0):
         print("export rendered testing images ...")
         os.makedirs(test_dir, exist_ok=True)
         gaussExtractor.reconstruction(scene.getTestCameras())
         gaussExtractor.export_image(test_dir)
-    
     
     if args.render_path:
         print("render videos ...")
