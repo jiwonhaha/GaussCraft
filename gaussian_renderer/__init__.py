@@ -39,7 +39,7 @@ def render(viewpoint_camera, pc : MeshGaussianModel, pipe, bg_color : torch.Tens
         image_width=int(viewpoint_camera.image_width),
         tanfovx=tanfovx,
         tanfovy=tanfovy,
-        bg= torch.tensor([1,1,1], dtype=torch.float32, device="cuda"),
+        bg= torch.tensor([0,0,0], dtype=torch.float32, device="cuda"),
         scale_modifier=scaling_modifier,
         viewmatrix=viewpoint_camera.world_view_transform,
         projmatrix=viewpoint_camera.full_proj_transform,

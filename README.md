@@ -1,18 +1,17 @@
 # Editable 2D Gaussian Splatting with As-Rigid-As-Possible Mesh Deformation
-[Editable 2D GS](https://github.com/jiwonhaha/cgvi_thesis)
+[GaussCraft](https://github.com/jiwonhaha/cgvi_thesis)
 
-This repository provides an implementation for editable 2D Gaussian splatting using ARAP mesh deformation.
+This repository contains the implementation of GaussCraft, a tool for editable 2D Gaussian Splatting combined with As-Rigid-As-Possible (ARAP) mesh deformation.
+
+## Model Overview
+![Model Overview](figure/edgs_edit_main.png)
 
 ### Result Images
 
 <div style="display: flex;">
     <div style="flex: 1; padding: 5px;">
-        Original object
-        <img src="figure/banana.png" alt="Original Banana" style="width: 100%;">
-    </div>
-    <div style="flex: 1; padding: 5px;">
-        Deformed object
-        <img src="figure/banana_bent.png" alt="Bent Banana" style="width: 100%;">
+        <p>Evaluation on NeRF Synthetic Dataset</p>
+        <img src="figure/nerf_eval" alt="NeRF Evaluation" style="width: 100%;">
     </div>
 </div>
 
@@ -20,7 +19,7 @@ This repository provides an implementation for editable 2D Gaussian splatting us
 
 ### Using an Existing Conda Environment
 
-If you already have the conda environment for 2D GS, you can use it directly. Otherwise, follow the installation instructions below:
+If you already have a conda environment set up for 2D Gaussian Splatting, you can use it directly. Otherwise, follow the instructions below for a new installation.
 
 ### New Installation
 
@@ -65,33 +64,21 @@ If you already have the conda environment for 2D GS, you can use it directly. Ot
     ```
 
 2. Using ARAP Mesh Deformation:
+    User can use interactive selection for handles and static vertices:
     ```bash
-    python arap.py <path to original mesh> handle_vertex_index move_scale how_many_static_vertices_around_static_vertex given_static_vertex_index
+    python arap.py <path to reconstructed mesh> 
     ```
 
-3. View the deformed rendering:
-    ```bash
-    python viewer.py <path to pre-trained model> <or direct path to the ply file> -s <data source path> --mesh_path <path to deformed mesh>
-    ```
-
-### (Optional) Optimize Gaussians Using Deformed Mesh
-
-1. Using ARAP Mesh Deformation:
-    ```bash
-    python arap.py <path to original mesh> handle_vertex_index move_scale how_many_static_vertices_around_static_vertex given_static_vertex_index
-    ```
-
-2. Train 2D GS with binding to the mesh (Densify deformed part more):
-    ```bash
-    python train.py -s <data source path> -m <output data path> --mesh_path <path to original mesh> --deformed_mesh_path <path to deformed mesh>
-    ```
-
-3. View the deformed rendering:
+3. View the edited rendering:
     ```bash
     python viewer.py <path to pre-trained model> <or direct path to the ply file> -s <data source path> --mesh_path <path to deformed mesh>
     ```
 
 ## Testing
+
+```bash
+python matric_mesh.py --gt_dir <path to gt dir> --test_dir <path to test dir>
+```
 
 ### Bounded Mesh Extraction
 
