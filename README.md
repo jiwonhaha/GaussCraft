@@ -104,4 +104,4 @@ python render.py -m <path to pre-trained model> -s <path to dataset> --mesh_res 
 
 ### Acknowledgements
 
-This project is built upon 2DGS (https://github.com/hbb1/2d-gaussian-splatting). 
+This project is built upon [2DGS](https://github.com/hbb1/2d-gaussian-splatting). 
