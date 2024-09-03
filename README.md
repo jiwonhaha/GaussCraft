@@ -1,7 +1,7 @@
-# Editable 2D Gaussian Splatting with As-Rigid-As-Possible Mesh Deformation
-[GaussCraft](https://github.com/jiwonhaha/cgvi_thesis)
+# GaussCraft: Editable 2D Gaussian Splatting with Mesh Deformation
+[GitHub](https://github.com/jiwonhaha/cgvi_thesis)
 
-This repository contains the implementation of GaussCraft, a tool for editable 2D Gaussian Splatting combined with As-Rigid-As-Possible (ARAP) mesh deformation.
+This repository contains the implementation of GaussCraft, a tool for editable 2D Gaussian Splatting combined mesh deformation.
 
 ## Model Overview
 ![Model Overview](figure/2dgs_edit_main.png)
@@ -25,8 +25,8 @@ If you already have a conda environment set up for 2D Gaussian Splatting, you ca
 
 1. Clone the repository:
     ```bash
-    git clone https://github.com/jiwonhaha/cgvi_thesis.git --recursive
-    cd cgvi_thesis
+    git clone https://github.com/jiwonhaha/GaussCraft.git --recursive
+    cd GaussCraft
     ```
 
 2. Create and activate the conda environment:
@@ -35,7 +35,7 @@ If you already have a conda environment set up for 2D Gaussian Splatting, you ca
     conda activate surfel_splatting
     ```
 
-3. Install the required Python packages:
+3. Install the required Python packages for viewer:
     ```bash
     pip install viser==0.1.29
     pip install splines
@@ -69,7 +69,7 @@ If you already have a conda environment set up for 2D Gaussian Splatting, you ca
     python arap.py <path to reconstructed mesh> 
     ```
 
-3. View the edited rendering:
+3. View the edited rendering with viewer:
     ```bash
     python viewer.py <path to pre-trained model> <or direct path to the ply file> -s <data source path> --mesh_path <path to deformed mesh>
     ```
@@ -100,3 +100,8 @@ python render.py -m <path to pre-trained model> -s <path to dataset> --mesh_res 
 ```
 
 **Custom Dataset**: We use the same COLMAP loader as 3DGS, you can prepare your data following [here](https://github.com/graphdeco-inria/gaussian-splatting?tab=readme-ov-file#processing-your-own-scenes). 
+
+
+### Acknowledgements
+
+This project is built upon 2DGS (https://github.com/hbb1/2d-gaussian-splatting). 

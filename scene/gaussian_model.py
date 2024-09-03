@@ -121,15 +121,14 @@ class GaussianModel:
     
     @property
     def get_rotation(self):
-        #shape of rotation: Nx4 (3D) ?? (2D)
+        #shape of rotation: Nx4 (3D) Nx4 with 4th element as 0 (2D)
         if self.binding is None:
             return self.rotation_activation(self._rotation)
         else:
-            # # always need to normalize the rotation quaternions before chaining them
             rot = self.rotation_activation(self._rotation)
             rot = torch.cat([rot, torch.zeros(rot.size(0), 1, device=rot.device)], dim=-1)
             face_orien_quat = self.rotation_activation(self.face_orien_quat[self.binding])
-            return quat_xyzw_to_wxyz(quat_product(quat_wxyz_to_xyzw(face_orien_quat), quat_wxyz_to_xyzw(rot)))  # roma
+            return quat_xyzw_to_wxyz(quat_product(quat_wxyz_to_xyzw(face_orien_quat), quat_wxyz_to_xyzw(rot))) 
            
     @property
     def get_xyz(self):
@@ -171,7 +170,6 @@ class GaussianModel:
 
             #modified!!!! 
             fused_point_cloud = torch.zeros((num_pts, 2)).float().cuda()
-            # fused_point_cloud = torch.zeros((num_pts, 2)).float().cuda()
             fused_color = torch.tensor(np.random.random((num_pts, 3)) / 255.0).float().cuda()
 
         features = torch.zeros((fused_color.shape[0], 3, (self.max_sh_degree + 1) ** 2)).float().cuda()
@@ -197,7 +195,6 @@ class GaussianModel:
 
         opacities = inverse_sigmoid(0.1 * torch.ones((fused_point_cloud.shape[0], 1), dtype=torch.float, device="cuda"))
         
-        # opacities = self.inverse_opacity_activation(0.1 * torch.ones((fused_point_cloud.shape[0], 1), dtype=torch.float, device="cuda"))
         
         self._xyz = nn.Parameter(fused_point_cloud.requires_grad_(True))
         self._features_dc = nn.Parameter(features[:,:,0:1].transpose(1, 2).contiguous().requires_grad_(True))
@@ -206,11 +203,6 @@ class GaussianModel:
         self._rotation = nn.Parameter(rots.requires_grad_(True))
         self._opacity = nn.Parameter(opacities.requires_grad_(True))
         self.max_radii2D = torch.zeros((self.get_xyz.shape[0]), device="cuda")
-
-        # if self.binding is not None:
-        #     self._xyz = nn.Parameter(fused_point_cloud.requires_grad_(True))
-        #     self._xyz.data[..., 2] = 0  # Force z-axis to be 0
-        #     self._xyz = nn.Parameter(self._xyz[..., :2].requires_grad_(True))  # Keep only x, y trainable
 
 
     def training_setup(self, training_args):
@@ -447,7 +439,7 @@ class GaussianModel:
     def densification_postfix(self, new_xyz, new_features_dc, new_features_rest, new_opacities, new_scaling, new_rotation):
         if self.binding is not None:
             d = {
-                "xyz": new_xyz[..., :2],  # Only x and y are trainable
+                "xyz": new_xyz[..., :2], 
                 "f_dc": new_features_dc,
                 "f_rest": new_features_rest,
                 "opacity": new_opacities,
@@ -487,24 +479,6 @@ class GaussianModel:
         selected_pts_mask = torch.logical_and(selected_pts_mask,
                                               torch.max(self.get_scaling, dim=1).values > self.percent_dense*scene_extent)
 
-        # densify deformed part
-        if self.binding is not None and self.mesh_diff is not None:
-
-            high_mesh_diff_mask = self.mesh_diff > self.diff_threshold
-            # Indices of faces of mesh
-            high_mesh_diff_indices = torch.where(high_mesh_diff_mask)[0]
-
-            # Filter out indices in high_mesh_diff_indices that occur more than 5 times in self.binding
-            binding_counts = torch.bincount(self.binding.view(-1))
-            filtered_high_mesh_diff_indices = high_mesh_diff_indices[
-                torch.where(binding_counts[high_mesh_diff_indices] < 10)[0]
-            ]
-
-            # Get indices in self.binding that match any of the filtered indices
-            gaussian_indices = torch.where(torch.isin(self.binding, filtered_high_mesh_diff_indices))[0]
-
-            # Add them to selected_pts_mask, ensuring no duplicates
-            selected_pts_mask[gaussian_indices] = True
 
             
         stds = self.get_scaling[selected_pts_mask].repeat(N,1)
@@ -540,25 +514,22 @@ class GaussianModel:
         
         prune_filter = torch.cat((selected_pts_mask, torch.zeros(N * selected_pts_mask.sum(), device="cuda", dtype=bool)))
         self.prune_points(prune_filter)
-        # if self.binding is not None:
-        #     self.prune_faces_by_distance()
+        if self.binding is not None:
+            self.prune_faces_by_distance()
     
     def prune_faces_by_distance(self):
         """
         Prune mesh faces based on distance from the origin (0, 0, 0).
         """
-        # Create a mask where distances greater than the threshold are set to True
 
         distances = torch.norm(self._xyz, dim=-1)
         threshold = 5
-        # Calculate the average distance or bounding box diagonal as a scaling factor
         max_distance = distances.max()
         min_distance = distances.min()
         scale_factor = (max_distance - min_distance) / threshold
         effective_threshold = threshold * scale_factor
         prune_mask = distances > effective_threshold
         
-        # Prune the points based on the mask
         self.prune_points(prune_mask)
 
 
