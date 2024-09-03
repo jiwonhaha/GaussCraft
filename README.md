@@ -4,14 +4,14 @@
 This repository contains the implementation of GaussCraft, a tool for editable 2D Gaussian Splatting combined with As-Rigid-As-Possible (ARAP) mesh deformation.
 
 ## Model Overview
-![Model Overview](figure/edgs_edit_main.png)
+![Model Overview](figure/2dgs_edit_main.png)
 
 ### Result Images
 
 <div style="display: flex;">
     <div style="flex: 1; padding: 5px;">
         <p>Evaluation on NeRF Synthetic Dataset</p>
-        <img src="figure/nerf_eval" alt="NeRF Evaluation" style="width: 100%;">
+        <img src="figure/nerf_eval.png" alt="NeRF Evaluation" style="width: 100%;">
     </div>
 </div>
 
