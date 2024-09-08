@@ -27,6 +27,21 @@ def readImages(renders_dir, gt_dir):
         render = Image.open(render_path).convert("RGB")
         gt = Image.open(gt_path).convert("RGBA")
 
+        # Get the dimensions of both images
+        render_width, render_height = render.size
+        gt_width, gt_height = gt.size
+
+        # Find the minimum width and height
+        min_width = min(render_width, gt_width)
+        min_height = min(render_height, gt_height)
+
+        # Resize both images to the minimum dimensionsfrom PIL import Image
+
+        # Use LANCZOS for resizing, which is the same as the old ANTIALIAS
+        render = render.resize((min_width, min_height), Image.Resampling.LANCZOS)
+        gt = gt.resize((min_width, min_height), Image.Resampling.LANCZOS)
+
+
         render_tensor = tf.to_tensor(render).cuda()
         gt_tensor = tf.to_tensor(gt).cuda()
 
