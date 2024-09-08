@@ -116,6 +116,7 @@ class GaussianModel:
         if self.binding is None:
             return self.scaling_activation(self._scaling) #.clamp(max=1)
         else:
+            # Toyota Motor Europe NV/SA and its affiliated companies retain all intellectual property and proprietary rights in and to the following code lines and related documentation. Any commercial use, reproduction, disclosure or distribution of these code lines and related documentation without an express license agreement from Toyota Motor Europe NV/SA is strictly prohibited.
             scaling = self.scaling_activation(self._scaling)
             return scaling * self.face_scaling[self.binding]
     
@@ -125,6 +126,8 @@ class GaussianModel:
         if self.binding is None:
             return self.rotation_activation(self._rotation)
         else:
+            # Toyota Motor Europe NV/SA and its affiliated companies retain all intellectual property and proprietary rights in and to the following code lines and related documentation. Any commercial use, reproduction, disclosure or distribution of these code lines and related documentation without an express license agreement from Toyota Motor Europe NV/SA is strictly prohibited.
+        
             rot = self.rotation_activation(self._rotation)
             rot = torch.cat([rot, torch.zeros(rot.size(0), 1, device=rot.device)], dim=-1)
             face_orien_quat = self.rotation_activation(self.face_orien_quat[self.binding])
@@ -136,6 +139,8 @@ class GaussianModel:
         if self.binding is None:
             return self._xyz
         else:
+            # Toyota Motor Europe NV/SA and its affiliated companies retain all intellectual property and proprietary rights in and to the following code lines and related documentation. Any commercial use, reproduction, disclosure or distribution of these code lines and related documentation without an express license agreement from Toyota Motor Europe NV/SA is strictly prohibited.
+        
             xyz = torch.cat([self._xyz, torch.zeros(self._xyz.size(0), 1, device=self._xyz.device)], dim=-1)
             xyz = torch.bmm(self.face_orien_mat[self.binding], xyz[..., None]).squeeze(-1)
             return xyz * self.face_scaling[self.binding] + self.face_center[self.binding]
@@ -388,6 +393,8 @@ class GaussianModel:
     def prune_points(self, mask):
         
         if self.binding is not None:
+            # Toyota Motor Europe NV/SA and its affiliated companies retain all intellectual property and proprietary rights in and to the following code lines and related documentation. Any commercial use, reproduction, disclosure or distribution of these code lines and related documentation without an express license agreement from Toyota Motor Europe NV/SA is strictly prohibited.
+        
             # make sure each face is bound to at least one point after pruning
             binding_to_prune = self.binding[mask]
             counter_prune = torch.zeros_like(self.binding_counter)
@@ -411,6 +418,8 @@ class GaussianModel:
 
 
         if self.binding is not None:
+            # Toyota Motor Europe NV/SA and its affiliated companies retain all intellectual property and proprietary rights in and to the following code lines and related documentation. Any commercial use, reproduction, disclosure or distribution of these code lines and related documentation without an express license agreement from Toyota Motor Europe NV/SA is strictly prohibited.
+        
             self.binding_counter.scatter_add_(0, self.binding[mask], -torch.ones_like(self.binding[mask], dtype=torch.int32, device="cuda"))
             self.binding = self.binding[valid_points_mask]
 
@@ -547,6 +556,8 @@ class GaussianModel:
         new_rotation = self._rotation[selected_pts_mask]
 
         if self.binding is not None:
+            # Toyota Motor Europe NV/SA and its affiliated companies retain all intellectual property and proprietary rights in and to the following code lines and related documentation. Any commercial use, reproduction, disclosure or distribution of these code lines and related documentation without an express license agreement from Toyota Motor Europe NV/SA is strictly prohibited.
+        
             #mesh
             new_binding = self.binding[selected_pts_mask]
             self.binding = torch.cat((self.binding, new_binding))

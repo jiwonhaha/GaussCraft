@@ -9,6 +9,8 @@ class MeshGaussianModel(GaussianModel):
         super().__init__(sh_degree)
         self.verts = None
         self.faces = None 
+
+        # Toyota Motor Europe NV/SA and its affiliated companies retain all intellectual property and proprietary rights in and to the following code lines and related documentation. Any commercial use, reproduction, disclosure or distribution of these code lines and related documentation without an express license agreement from Toyota Motor Europe NV/SA is strictly prohibited.
         self.binding = None #splattings to faces
         self.binding_counter = None
 
