@@ -1,7 +1,7 @@
 # GaussCraft: Editable 2D Gaussian Splatting with Mesh Deformation
 [GitHub](https://github.com/jiwonhaha/cgvi_thesis)
 
-Abstract:
+## Abstract:
 
 2D Gaussian Splatting has recently provided a novel method for accurately recon- structing geometrically consistent radiance fields from multi-view images, improv- ing surface representation and achieving high-quality, real-time rendering. However, existing 2D or 3D Gaussian splatting methods do not offer the capability for user- directed scene editing. While some 3D Gaussian-based methods exist for avatar specific editing, they are limited to avatar applications and do not extend to general scenarios. Therefore, this paper introduces GaussCraft, an real-time scene editing framework that utilizes 2D Gaussian Splatting for high-quality mesh reconstruction. Unlike previous methods, GaussCraft does not require retraining the model for each edited scene; it is trained once using the reconstructed mesh. Specifically, Gauss- Craft reconstructs the mesh from multi-view images using 2D Gaussian Splatting, and then binds 2D Gaussians to each mesh face, allowing users to render scenes with user-edited, deformed meshes. This method has been tested on both synthetic and real-world captured data, showing significant potential for application across various fields. 
 
