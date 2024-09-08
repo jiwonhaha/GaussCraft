@@ -8,7 +8,6 @@ from lpipsPyTorch import LPIPS  # Correct import
 import json
 from tqdm import tqdm
 from utils.image_utils import psnr
-from pytorch_fid import fid_score  # Import FID calculation function
 
 def readImages(renders_dir, gt_dir):
     renders = []
@@ -35,12 +34,9 @@ def readImages(renders_dir, gt_dir):
         min_width = min(render_width, gt_width)
         min_height = min(render_height, gt_height)
 
-        # Resize both images to the minimum dimensionsfrom PIL import Image
-
-        # Use LANCZOS for resizing, which is the same as the old ANTIALIAS
+        # Resize both images to the minimum dimensions
         render = render.resize((min_width, min_height), Image.Resampling.LANCZOS)
         gt = gt.resize((min_width, min_height), Image.Resampling.LANCZOS)
-
 
         render_tensor = tf.to_tensor(render).cuda()
         gt_tensor = tf.to_tensor(gt).cuda()
@@ -76,9 +72,9 @@ def evaluate(gt_dir, test_dir):
     lpips_model = LPIPS(net_type='vgg').cuda()  # Initialize LPIPS model
 
     for idx in tqdm(range(len(renders)), desc="Metric evaluation progress"):
-        ssims.append(ssim(renders[idx], gts[idx]))
-        psnrs.append(psnr(renders[idx], gts[idx]))
-        lpipss.append(lpips_model(renders[idx], gts[idx]))
+        ssims.append(ssim(renders[idx], gts[idx]).item())  # Convert tensor to float
+        psnrs.append(psnr(renders[idx], gts[idx]).item())  # Convert tensor to float
+        lpipss.append(lpips_model(renders[idx], gts[idx]).item())  # Convert tensor to float
 
     print("  SSIM : {:>12.7f}".format(torch.tensor(ssims).mean()))
     print("  PSNR : {:>12.7f}".format(torch.tensor(psnrs).mean()))
@@ -88,16 +84,11 @@ def evaluate(gt_dir, test_dir):
     full_dict.update({"SSIM": torch.tensor(ssims).mean().item(),
                       "PSNR": torch.tensor(psnrs).mean().item(),
                       "LPIPS": torch.tensor(lpipss).mean().item()})
+
+    # No need for .item() as these are already floats
     per_view_dict.update({"SSIM": ssims,
                           "PSNR": psnrs,
                           "LPIPS": lpipss})
-
-    # Compute FID score
-    print("Computing FID...")
-    fid = fid_score.calculate_fid_given_paths([str(gt_dir), str(test_dir)], batch_size=50, device='cuda', dims=2048)
-    print(f"FID: {fid:.4f}")
-
-    full_dict.update({"FID": fid})
 
     # Save results
     results_file = test_dir.parent / "results.json"
@@ -110,10 +101,11 @@ def evaluate(gt_dir, test_dir):
 
     print(f"Results saved to {results_file} and {per_view_file}")
 
+
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="Evaluate images with SSIM, PSNR, LPIPS, and FID ignoring background.")
+    parser = argparse.ArgumentParser(description="Evaluate images with SSIM, PSNR, and LPIPS ignoring background.")
     parser.add_argument('--gt_dir', type=str, required=True, help="Directory containing ground truth images (with alpha transparency).")
     parser.add_argument('--test_dir', type=str, required=True, help="Directory containing test images (with black background).")
     
