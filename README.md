@@ -1,5 +1,5 @@
 # GaussCraft: Editable 2D Gaussian Splatting with Mesh Deformation
-[GitHub](https://github.com/jiwonhaha/cgvi_thesis)
+[GitHub](https://github.com/jiwonhaha/cgvi_thesis) //
 [Project Page](https://jiwonhaha.github.io/gausscraft/)
 
 ## Abstract:
