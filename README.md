@@ -53,7 +53,7 @@ If you already have a conda environment set up for 2D Gaussian Splatting, you ca
 
 ### Train 2D Gaussian Splatting to Reconstruct Mesh and Deform It
 
-(*Alternatively, users can skip this process and use pre-provided meshes and deformed meshes from [Google Drive](https://drive.google.com/drive/folders/1-_z_Ojb2abcQAQVpitrGvGyLjbctUfvI?usp=share_link).*)
+(*Alternatively, users can skip this process and use lego from NeRF Synthetic Dataset with pre-provided meshes and deformed meshes from [Google Drive](https://drive.google.com/drive/folders/1-_z_Ojb2abcQAQVpitrGvGyLjbctUfvI?usp=share_link).*)
 
 1. Use the original 2D GS code to start:
     ```bash
@@ -83,6 +83,7 @@ If you already have a conda environment set up for 2D Gaussian Splatting, you ca
     python viewer.py <path to pre-trained model> <or direct path to the ply file> -s <data source path> --mesh_path <path to deformed mesh>
     ```
 
+
 ## Testing
 
 ```bash
@@ -108,9 +109,9 @@ To export a mesh with an arbitrary size, we devised an unbounded TSDF fusion wit
 python render.py -m <path to pre-trained model> -s <path to dataset> --mesh_res 1024
 ```
 
-**Custom Dataset**: We use the same COLMAP loader as 3DGS, you can prepare your data following [here](https://github.com/graphdeco-inria/gaussian-splatting?tab=readme-ov-file#processing-your-own-scenes). 
+**Custom Dataset**: GaussCraft uses the same COLMAP loader as 3DGS, you can prepare your data as 3DGS [here](https://github.com/graphdeco-inria/gaussian-splatting?tab=readme-ov-file#processing-your-own-scenes). 
 
 
 ### Acknowledgements
 
-This project is built upon [2DGS](https://github.com/hbb1/2d-gaussian-splatting). 
+This project is built upon [2DGS](https://github.com/hbb1/2d-gaussian-splatting) and [Gaussian Avatar](https://github.com/ShenhanQian/GaussianAvatars). 
