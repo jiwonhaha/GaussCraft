@@ -53,7 +53,7 @@ If you already have a conda environment set up for 2D Gaussian Splatting, you ca
 
 ### Train 2D Gaussian Splatting to Reconstruct Mesh and Deform It
 
-(*Alternatively, users can skip this process and use pre-provided meshes and deformed meshes from [https://drive.google.com/drive/folders/1-_z_Ojb2abcQAQVpitrGvGyLjbctUfvI?usp=share_link](Google Drive).*)
+(*Alternatively, users can skip this process and use pre-provided meshes and deformed meshes from [Google Drive](https://drive.google.com/drive/folders/1-_z_Ojb2abcQAQVpitrGvGyLjbctUfvI?usp=share_link).*)
 
 1. Use the original 2D GS code to start:
     ```bash
