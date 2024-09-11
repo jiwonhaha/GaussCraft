@@ -69,12 +69,12 @@ def evaluate(gt_dir, test_dir):
     psnrs = []
     lpipss = []
 
-    lpips_model = LPIPS(net_type='vgg').cuda()  # Initialize LPIPS model
+    lpips_model = LPIPS(net_type='vgg').cuda() 
 
     for idx in tqdm(range(len(renders)), desc="Metric evaluation progress"):
-        ssims.append(ssim(renders[idx], gts[idx]).item())  # Convert tensor to float
-        psnrs.append(psnr(renders[idx], gts[idx]).item())  # Convert tensor to float
-        lpipss.append(lpips_model(renders[idx], gts[idx]).item())  # Convert tensor to float
+        ssims.append(ssim(renders[idx], gts[idx]).item())  
+        psnrs.append(psnr(renders[idx], gts[idx]).item()) 
+        lpipss.append(lpips_model(renders[idx], gts[idx]).item())  
 
     print("  SSIM : {:>12.7f}".format(torch.tensor(ssims).mean()))
     print("  PSNR : {:>12.7f}".format(torch.tensor(psnrs).mean()))

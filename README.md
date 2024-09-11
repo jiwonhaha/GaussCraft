@@ -1,6 +1,10 @@
-# GaussCraft: Editable 2D Gaussian Splatting with Mesh Deformation
-[GitHub](https://github.com/jiwonhaha/cgvi_thesis) //
-[Project Page](https://jiwonhaha.github.io/gausscraft/)
+## 🚀 **GaussCraft: Editable 2D Gaussian Splatting with Mesh Deformation**
+
+Explore the project:
+
+- [**GitHub Repository**](https://github.com/jiwonhaha/cgvi_thesis) 💻
+- [**Project Page**](https://jiwonhaha.github.io/gausscraft/) 🌐
+
 
 ## Abstract:
 
@@ -47,7 +51,9 @@ If you already have a conda environment set up for 2D Gaussian Splatting, you ca
 
 ## Training
 
-### Viewing a 2D GS PLY File
+### Train 2D Gaussian Splatting to Reconstruct Mesh and Deform It
+
+(*Alternatively, users can skip this process and use pre-provided meshes and deformed meshes from [https://drive.google.com/drive/folders/1-_z_Ojb2abcQAQVpitrGvGyLjbctUfvI?usp=share_link](Google Drive).*)
 
 1. Use the original 2D GS code to start:
     ```bash
@@ -59,20 +65,20 @@ If you already have a conda environment set up for 2D Gaussian Splatting, you ca
     python render.py -s <data source path> -m <output data path> --depth_ratio 1 --skip_test --skip_train
     ```
 
-### Extracting and Training the Mesh
+3. Using ARAP Mesh Deformation:
+    User can use interactive selection for handles and static vertices:
+    ```bash
+    python arap.py <path to reconstructed mesh> 
+    ```
+
+### Bind Gaussian to Extracted mesh and Render with Deformed mesh
 
 1. Train 2D GS with binding to the mesh:
     ```bash
     python train.py -s <data source path> -m <output data path> --mesh_path <path to original mesh>
     ```
 
-2. Using ARAP Mesh Deformation:
-    User can use interactive selection for handles and static vertices:
-    ```bash
-    python arap.py <path to reconstructed mesh> 
-    ```
-
-3. View the edited rendering with viewer:
+2. View the edited rendering with viewer:
     ```bash
     python viewer.py <path to pre-trained model> <or direct path to the ply file> -s <data source path> --mesh_path <path to deformed mesh>
     ```
