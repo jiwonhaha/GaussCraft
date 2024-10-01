@@ -114,10 +114,18 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         total_loss = loss + dist_loss + normal_loss
 
         if gaussians.binding is not None:
+
+            # # anisotropy loss
+            max_scale, _ = torch.max(gaussians.get_scaling, dim=1)
+            min_scale, _ = torch.min(gaussians.get_scaling, dim=1)
+
+            # Calculate the element-wise maximum between max_scale/min_scale and opt.threshold_ani
+            ani_loss = (torch.max(max_scale / min_scale, torch.tensor(opt.threshold_ani, device=max_scale.device)) - opt.threshold_ani).mean()
+
             # Mesh loss
             pos_loss = F.relu((gaussians._xyz * gaussians.face_scaling[gaussians.binding])[visibility_filter] - opt.threshold_xyz).norm(dim=1).mean() * opt.lambda_xyz
             scale_loss = F.relu(gaussians.get_scaling[visibility_filter] - opt.threshold_scale).norm(dim=1).mean() * opt.lambda_scale
-            total_loss += pos_loss + scale_loss
+            total_loss += pos_loss + scale_loss + ani_loss
             
         
         total_loss.backward()
